@@ -1,0 +1,30 @@
+{
+  "name": "demo-room",
+  "units": "meters",
+  "spawn": { "position": [1.5, 0, 3.5], "yaw_deg": -90 },
+  "schematic": {
+    "floor": { "min": [0, 0], "max": [10, 5] },
+    "wall_height": 2.7,
+    "walls": [
+      { "from": [0, 0], "to": [6, 0], "thickness": 0.15 },
+      { "from": [0, 5], "to": [6, 5], "thickness": 0.15 },
+      { "from": [0, 0], "to": [0, 5], "thickness": 0.15 },
+      { "from": [6, 0], "to": [6, 2.0], "thickness": 0.15 },
+      { "from": [6, 3.0], "to": [6, 5], "thickness": 0.15 },
+      { "from": [6, 0], "to": [10, 0], "thickness": 0.15 },
+      { "from": [6, 5], "to": [10, 5], "thickness": 0.15 },
+      { "from": [10, 0], "to": [10, 5], "thickness": 0.15 }
+    ]
+  },
+  "objects": [
+    { "id": "bed_0", "class": "bed", "position": [1.0, 0, 1.2], "size": [1.4, 0.6, 2.0], "rotation_y": 0, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "desk_0", "class": "desk", "position": [3.5, 0, 0.4], "size": [1.2, 0.75, 0.6], "rotation_y": 0, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "chair_0", "class": "chair", "position": [3.5, 0, 1.0], "size": [0.5, 0.9, 0.5], "rotation_y": 15, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "bookshelf_0", "class": "bookshelf", "position": [5.7, 0, 4.0], "size": [0.9, 1.8, 0.35], "rotation_y": 90, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "rug_0", "class": "rug", "position": [3.0, 0, 3.0], "size": [2.0, 0.01, 1.5], "rotation_y": 0, "collide": false, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "lamp_0", "class": "lamp", "position": [0.4, 0, 4.6], "size": [0.3, 1.5, 0.3], "rotation_y": 0, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "sofa_0", "class": "sofa", "position": [8.0, 0, 4.4], "size": [2.0, 0.8, 0.9], "rotation_y": 0, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "table_0", "class": "table", "position": [8.0, 0, 3.2], "size": [1.0, 0.45, 0.6], "rotation_y": 0, "model": null, "source": { "image": null, "confidence": null } },
+    { "id": "plant_0", "class": "plant", "position": [9.6, 0, 0.4], "size": [0.4, 1.0, 0.4], "rotation_y": 0, "model": null, "source": { "image": null, "confidence": null } }
+  ]
+}
