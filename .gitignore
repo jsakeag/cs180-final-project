@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pt
+detect/samples/
+detect/out/
+.DS_Store
+detect/weights/

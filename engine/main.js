@@ -61,6 +61,8 @@ let colliders = [];
 let grid = null;
 let thirdPerson = false;
 let thirdDist = CFG.thirdDist;
+let photoCam = null;     // when set, camera is locked to a photo's recovered viewpoint
+let photoIdx = -1;
 const keys = new Set();
 
 // ---------- helpers ----------
@@ -228,6 +230,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyL') labelGroup.visible = !labelGroup.visible;
   if (e.code === 'KeyG' && grid) grid.visible = !grid.visible;
   if (e.code === 'KeyR') respawn();
+  if (e.code === 'KeyP') cyclePhotoCam();
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code) && photoCam) exitPhotoCam();
   if (e.code === 'KeyV') { thirdPerson = !thirdPerson; avatar.visible = thirdPerson; }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -292,8 +296,35 @@ function updatePlayer(dt) {
   }
 }
 
+function cyclePhotoCam() {
+  const cams = sceneDef?.cameras ?? [];
+  if (!cams.length) return;
+  photoIdx = (photoIdx + 1) % cams.length;
+  photoCam = cams[photoIdx];
+  // stand where the photographer stood, looking the same way
+  player.x = photoCam.position[0];
+  player.z = photoCam.position[2];
+  player.yaw = THREE.MathUtils.degToRad(photoCam.yaw_deg);
+  player.pitch = THREE.MathUtils.degToRad(photoCam.pitch_deg);
+  player.vx = player.vz = 0;
+  camera.fov = photoCam.fov_v_deg;
+  camera.updateProjectionMatrix();
+}
+function exitPhotoCam() {
+  photoCam = null;
+  camera.fov = CFG.fovDefault;
+  camera.updateProjectionMatrix();
+}
+
 const raycaster = new THREE.Raycaster();
 function updateCamera() {
+  if (photoCam) {
+    camera.position.set(photoCam.position[0], photoCam.position[1], photoCam.position[2]);
+    camera.rotation.set(player.pitch, player.yaw, 0);
+    avatar.visible = false;
+    return;
+  }
+  avatar.visible = thirdPerson;
   const head = new THREE.Vector3(player.x, player.y + CFG.eyeHeight, player.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (!thirdPerson) {
@@ -326,7 +357,7 @@ function updateHud(dt) {
     `scene  ${sceneDef?.name ?? '-'}\n` +
     `pos    ${player.x.toFixed(2)}, ${player.y.toFixed(2)}, ${player.z.toFixed(2)}  ${player.grounded ? 'grounded' : 'air'}\n` +
     `yaw    ${deg.toFixed(0)}°   speed ${Math.hypot(player.vx, player.vz).toFixed(2)} m/s\n` +
-    `view   ${thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
+    `view   ${photoCam ? `photo ${photoCam.image.split('/').pop()} (WASD to leave)` : thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
     `touch  ${player.hits.join(' ') || '-'}\n` +
     `fps    ${fps.toFixed(0)}`;
 }

@@ -1,0 +1,45 @@
+# Detection: photos → objects in the scene JSON
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r detect/requirements.txt   # once, from repo root
+
+# 1. detect objects (+ metric depth) in each photo
+.venv/bin/python detect/detect.py photos/*.jpg -o detect/out/detections.json --depth --viz
+
+# 2. place them on the room's floor plan
+.venv/bin/python detect/place.py --detections detect/out/detections.json \
+    --reg detect/scenes/bedroom/registration.json \
+    --scene detect/scenes/bedroom/schematic.json \
+    -o engine/scenes/bedroom.json --viz
+
+# 3. walk around it; press P to view from each photo's camera
+cd engine && python3 -m http.server 8000   # http://localhost:8000/?scene=scenes/bedroom.json
+
+python3 detect/tests/test_homography.py && python3 detect/tests/test_camera.py
+```
+
+## Per room you provide
+
+- `schematic.json`: the room's floor and walls in meters (same format as the engine's scene files, `objects` empty).
+- `registration.json`: for each photo, ≥ 4 floor points clicked in the photo (`image_points`, pixels) and the same points on the plan (`plan_points`, meters). Room corners, door frames and rug corners all work. Use ≥ 5 points for least-squares slack.
+
+## How placement works
+
+| step | what |
+|---|---|
+| floor homography | `homography.py`: clicked pairs → H (image → plan), DLT + Hartley normalization |
+| camera pose | `camera.py`: H = K[r1 r2 t] → focal length (if no EXIF), camera position, height, facing |
+| depth scale | Depth Anything's metric depth is rescaled so the clicked floor points sit at their true distance |
+| per object | visible floor contact → bottom of box through H; contact hidden (cut off by the image edge / behind something) → box center + depth through the camera pose; sitting on something (same depth as the object covering its base) → lifted to that height |
+| size | box width/height in meters, clamped to 0.6–1.6× a per-class prior (`priors.py`) |
+| facing | bottom edge direction, snapped to the walls within 20° |
+| multiple photos | same class within ~half a footprint → merged |
+
+Debug output (`--viz`, in `detect/out/`): `*_det.jpg` (boxes + depth), `*_placed.jpg` (what got placed and how: blue = floor contact, green = depth), `<scene>_plan.png` (top-down plan with the recovered camera).
+
+## Known limits
+
+- `samples/` are COCO photos with no measurements; `scenes/bedroom` uses guessed floor coordinates, so its absolute scale is a guess. Real rooms need measured `plan_points`.
+- Loose boxes (e.g. the bed's box covering a plant pot) can wrongly mark a base as hidden; depth placement is then used, which is less precise.
+- Only floor-standing classes are placed. Wall items (tv, pictures, windows, doors) are detected but not placed yet.
+- Objects are colored boxes until a `model` (.glb) is matched.

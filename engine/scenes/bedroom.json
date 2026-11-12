@@ -1,0 +1,357 @@
+{
+  "name": "coco-bedroom",
+  "units": "meters",
+  "spawn": {
+    "position": [
+      2.0,
+      0,
+      3.9
+    ],
+    "yaw_deg": 0
+  },
+  "schematic": {
+    "floor": {
+      "min": [
+        0,
+        0
+      ],
+      "max": [
+        2.7,
+        4.35
+      ]
+    },
+    "wall_height": 2.5,
+    "walls": [
+      {
+        "from": [
+          0,
+          0
+        ],
+        "to": [
+          2.7,
+          0
+        ],
+        "thickness": 0.12
+      },
+      {
+        "from": [
+          2.7,
+          0
+        ],
+        "to": [
+          2.7,
+          4.35
+        ],
+        "thickness": 0.12
+      },
+      {
+        "from": [
+          0,
+          4.35
+        ],
+        "to": [
+          2.7,
+          4.35
+        ],
+        "thickness": 0.12
+      },
+      {
+        "from": [
+          0,
+          0
+        ],
+        "to": [
+          0,
+          4.35
+        ],
+        "thickness": 0.12
+      }
+    ]
+  },
+  "objects": [
+    {
+      "id": "bed_0",
+      "class": "bed",
+      "position": [
+        0.734,
+        0.0,
+        1.563
+      ],
+      "size": [
+        1.467,
+        0.744,
+        1.956
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.821,
+        "box": [
+          0.0,
+          280.0,
+          399.6,
+          482.6
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "base cut off by image edge"
+        ]
+      }
+    },
+    {
+      "id": "basket_0",
+      "class": "basket",
+      "position": [
+        2.399,
+        0.0,
+        0.534
+      ],
+      "size": [
+        0.447,
+        0.49,
+        0.35
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.78,
+        "box": [
+          487.1,
+          303.7,
+          558.8,
+          380.3
+        ],
+        "placed_by": "floor",
+        "notes": []
+      }
+    },
+    {
+      "id": "plant_0",
+      "class": "plant",
+      "position": [
+        1.403,
+        0.0,
+        0.2
+      ],
+      "size": [
+        0.64,
+        1.013,
+        0.4
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.779,
+        "box": [
+          337.9,
+          216.3,
+          430.9,
+          352.6
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "base hidden by bed"
+        ]
+      }
+    },
+    {
+      "id": "cabinet_0",
+      "class": "cabinet",
+      "position": [
+        0.321,
+        0.0,
+        0.45
+      ],
+      "size": [
+        1.282,
+        1.0,
+        0.641
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.775,
+        "box": [
+          75.3,
+          225.1,
+          244.3,
+          310.7
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "base hidden by bed"
+        ]
+      }
+    },
+    {
+      "id": "bookshelf_0",
+      "class": "bookshelf",
+      "position": [
+        2.223,
+        0.0,
+        0.195
+      ],
+      "size": [
+        1.002,
+        2.349,
+        0.39
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.773,
+        "box": [
+          421.7,
+          36.2,
+          563.6,
+          359.1
+        ],
+        "placed_by": "floor",
+        "notes": [
+          "tall cabinet -> bookshelf"
+        ]
+      }
+    },
+    {
+      "id": "plant_1",
+      "class": "plant",
+      "position": [
+        0.2,
+        0.863,
+        0.2
+      ],
+      "size": [
+        0.497,
+        0.83,
+        0.4
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.746,
+        "box": [
+          183.4,
+          131.4,
+          241.7,
+          228.8
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "resting on cabinet at 0.86 m"
+        ]
+      }
+    },
+    {
+      "id": "tv_stand_0",
+      "class": "tv_stand",
+      "position": [
+        0.681,
+        0.0,
+        0.135
+      ],
+      "size": [
+        0.96,
+        0.5,
+        0.27
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.441,
+        "box": [
+          250.2,
+          271.9,
+          347.7,
+          318.2
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "base hidden by bed"
+        ]
+      }
+    },
+    {
+      "id": "basket_1",
+      "class": "basket",
+      "position": [
+        2.076,
+        2.1,
+        0.175
+      ],
+      "size": [
+        0.483,
+        0.24,
+        0.35
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.399,
+        "box": [
+          448.0,
+          11.1,
+          515.3,
+          40.8
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "base above horizon",
+          "resting on cabinet at 2.10 m"
+        ]
+      }
+    },
+    {
+      "id": "basket_2",
+      "class": "basket",
+      "position": [
+        2.493,
+        2.1,
+        0.144
+      ],
+      "size": [
+        0.288,
+        0.263,
+        0.35
+      ],
+      "rotation_y": 0.0,
+      "model": null,
+      "source": {
+        "image": "detect/samples/coco_000000000632.jpg",
+        "confidence": 0.267,
+        "box": [
+          520.7,
+          1.5,
+          561.5,
+          38.8
+        ],
+        "placed_by": "depth",
+        "notes": [
+          "base above horizon",
+          "elevated 2.10 m"
+        ]
+      }
+    }
+  ],
+  "cameras": [
+    {
+      "image": "detect/samples/coco_000000000632.jpg",
+      "position": [
+        2.064,
+        1.122,
+        4.01
+      ],
+      "yaw_deg": 16.93,
+      "pitch_deg": -4.83,
+      "fov_v_deg": 50.92,
+      "aspect": 1.3251
+    }
+  ]
+}

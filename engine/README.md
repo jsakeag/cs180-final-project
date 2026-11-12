@@ -8,7 +8,7 @@ cd engine && python3 -m http.server 8000
 node tests/collision.test.mjs   # collision unit tests
 ```
 
-Controls: click to play · WASD · Space jump (you can land on objects) · Shift sprint · mouse look · scroll zoom (FOV in 1st person, distance in 3rd) · V 1st/3rd person · C collider outlines (green = touching) · L labels · G 1 m grid · R respawn.
+Controls: click to play · WASD · Space jump (you can land on objects) · Shift sprint · mouse look · scroll zoom (FOV in 1st person, distance in 3rd) · V 1st/3rd person · P jump to each source photo's camera · C collider outlines (green = touching) · L labels · G 1 m grid · R respawn.
 Tune movement live in the console via `dbg.CFG` (speed, radius, accel, sensitivity, jumpSpeed, gravity).
 
 ## Scene JSON (the contract between detection and the engine)

@@ -1,0 +1,50 @@
+[
+  {
+    "image": "detect/samples/coco_000000000632.jpg",
+    "note": "public photo, no measurements: plan coords estimated from an assumed level camera (~1.1 m, 65 deg hfov), scaled so furniture sizes look plausible",
+    "image_points": [
+      [
+        560,
+        352
+      ],
+      [
+        382,
+        348
+      ],
+      [
+        620,
+        460
+      ],
+      [
+        450,
+        470
+      ],
+      [
+        500,
+        420
+      ]
+    ],
+    "plan_points": [
+      [
+        2.7,
+        0.0
+      ],
+      [
+        1.425,
+        0.292
+      ],
+      [
+        2.7,
+        1.62
+      ],
+      [
+        2.002,
+        1.92
+      ],
+      [
+        2.22,
+        1.35
+      ]
+    ]
+  }
+]
