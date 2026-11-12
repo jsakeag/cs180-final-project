@@ -5,3 +5,5 @@ detect/samples/
 detect/out/
 .DS_Store
 detect/weights/
+detect/data/
+engine/models/

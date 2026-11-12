@@ -78,12 +78,12 @@
         1.563
       ],
       "size": [
-        1.467,
-        0.744,
-        1.956
+        1.586,
+        0.688,
+        2.133
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B01M0ZVGCQ.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.821,
@@ -97,6 +97,14 @@
         "notes": [
           "base cut off by image edge"
         ]
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B01M0ZVGCQ",
+        "name": "Movian Belaya",
+        "clip_sim": 0.745,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 1.094
       }
     },
     {
@@ -108,12 +116,12 @@
         0.534
       ],
       "size": [
-        0.447,
-        0.49,
-        0.35
+        0.695,
+        0.315,
+        0.527
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B078JM9XSJ.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.78,
@@ -125,6 +133,14 @@
         ],
         "placed_by": "floor",
         "notes": []
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B078JM9XSJ",
+        "name": "Amazon Brand \u2013 Stone & Beam Modern Farmhouse Wood and Galvanized Metal Decor Storage Bin Basket - 15.75 Inch, White Wash",
+        "clip_sim": 0.736,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 1.275
       }
     },
     {
@@ -136,12 +152,12 @@
         0.2
       ],
       "size": [
-        0.64,
-        1.013,
+        0.371,
+        0.852,
         0.4
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/polyhaven/potted_plant_01/potted_plant_01_1k.gltf",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.779,
@@ -155,6 +171,14 @@
         "notes": [
           "base hidden by bed"
         ]
+      },
+      "model_info": {
+        "source": "polyhaven",
+        "id": "potted_plant_01",
+        "name": "Potted Plant 01",
+        "clip_sim": 0.61,
+        "license": "CC0 (Poly Haven)",
+        "scale_vs_real": 0.631
       }
     },
     {
@@ -166,12 +190,12 @@
         0.45
       ],
       "size": [
-        1.282,
-        1.0,
-        0.641
+        1.399,
+        0.916,
+        0.532
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B075YZPG5Y.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.775,
@@ -185,6 +209,14 @@
         "notes": [
           "base hidden by bed"
         ]
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B075YZPG5Y",
+        "name": "Amazon Brand \u2013 Rivet Eastport Industrial 7-Drawer Wood Dresser, 49.2\"W, Oak Finish",
+        "clip_sim": 0.651,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 1.11
       }
     },
     {
@@ -196,12 +228,12 @@
         0.195
       ],
       "size": [
-        1.002,
-        2.349,
-        0.39
+        1.052,
+        2.237,
+        0.465
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B07JGY5LNV.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.773,
@@ -215,6 +247,14 @@
         "notes": [
           "tall cabinet -> bookshelf"
         ]
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B07JGY5LNV",
+        "name": "Amazon Brand -\u00a0Alkove Velle Bookcase, 42 x 95 x 202cm, Oiled Honey Oak",
+        "clip_sim": 0.727,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 1.108
       }
     },
     {
@@ -226,12 +266,12 @@
         0.2
       ],
       "size": [
-        0.497,
+        0.361,
         0.83,
-        0.4
+        0.389
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/polyhaven/potted_plant_01/potted_plant_01_1k.gltf",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.746,
@@ -245,6 +285,14 @@
         "notes": [
           "resting on cabinet at 0.86 m"
         ]
+      },
+      "model_info": {
+        "source": "polyhaven",
+        "id": "potted_plant_01",
+        "name": "Potted Plant 01",
+        "clip_sim": 0.769,
+        "license": "CC0 (Poly Haven)",
+        "scale_vs_real": 0.615
       }
     },
     {
@@ -256,12 +304,12 @@
         0.135
       ],
       "size": [
-        0.96,
-        0.5,
-        0.27
+        0.739,
+        0.65,
+        0.352
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B07HSBJ7FW.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.441,
@@ -275,6 +323,14 @@
         "notes": [
           "base hidden by bed"
         ]
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B07HSBJ7FW",
+        "name": "Amazon Brand \u2013 Rivet Mid-Century Cabinet 29.53\"H, Walnut",
+        "clip_sim": 0.592,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 0.994
       }
     },
     {
@@ -286,12 +342,12 @@
         0.175
       ],
       "size": [
-        0.483,
-        0.24,
-        0.35
+        0.506,
+        0.229,
+        0.384
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B078JM9XSJ.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.399,
@@ -306,6 +362,14 @@
           "base above horizon",
           "resting on cabinet at 2.10 m"
         ]
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B078JM9XSJ",
+        "name": "Amazon Brand \u2013 Stone & Beam Modern Farmhouse Wood and Galvanized Metal Decor Storage Bin Basket - 15.75 Inch, White Wash",
+        "clip_sim": 0.679,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 0.928
       }
     },
     {
@@ -317,12 +381,12 @@
         0.144
       ],
       "size": [
-        0.288,
-        0.263,
-        0.35
+        0.409,
+        0.185,
+        0.31
       ],
       "rotation_y": 0.0,
-      "model": null,
+      "model": "models/abo/B078JM9XSJ.glb",
       "source": {
         "image": "detect/samples/coco_000000000632.jpg",
         "confidence": 0.267,
@@ -337,6 +401,14 @@
           "base above horizon",
           "elevated 2.10 m"
         ]
+      },
+      "model_info": {
+        "source": "abo",
+        "id": "B078JM9XSJ",
+        "name": "Amazon Brand \u2013 Stone & Beam Modern Farmhouse Wood and Galvanized Metal Decor Storage Bin Basket - 15.75 Inch, White Wash",
+        "clip_sim": 0.651,
+        "license": "CC BY 4.0 (Amazon Berkeley Objects)",
+        "scale_vs_real": 0.75
       }
     }
   ],
@@ -353,5 +425,13 @@
       "fov_v_deg": 50.92,
       "aspect": 1.3251
     }
+  ],
+  "credits": [
+    "Amazon Brand -\u00a0Alkove Velle Bookcase, 42 x 95 x 202cm, Oiled Honey Oak (CC BY 4.0 (Amazon Berkeley Objects))",
+    "Amazon Brand \u2013 Rivet Eastport Industrial 7-Drawer Wood Dresser, 49.2\"W, Oak Finish (CC BY 4.0 (Amazon Berkeley Objects))",
+    "Amazon Brand \u2013 Rivet Mid-Century Cabinet 29.53\"H, Walnut (CC BY 4.0 (Amazon Berkeley Objects))",
+    "Amazon Brand \u2013 Stone & Beam Modern Farmhouse Wood and Galvanized Metal Decor Storage Bin Basket - 15.75 Inch, White Wash (CC BY 4.0 (Amazon Berkeley Objects))",
+    "Movian Belaya (CC BY 4.0 (Amazon Berkeley Objects))",
+    "Potted Plant 01 (CC0 (Poly Haven))"
   ]
 }

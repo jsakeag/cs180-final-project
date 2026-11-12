@@ -12,7 +12,11 @@ python3 -m venv .venv && .venv/bin/pip install -r detect/requirements.txt   # on
     --scene detect/scenes/bedroom/schematic.json \
     -o engine/scenes/bedroom.json --viz
 
-# 3. walk around it; press P to view from each photo's camera
+# 3. swap boxes for real 3D models (once: build the catalog, ~3.5k models)
+.venv/bin/python detect/models_catalog.py build
+.venv/bin/python detect/models_catalog.py match engine/scenes/bedroom.json
+
+# 4. walk around it; press P to view from each photo's camera
 cd engine && python3 -m http.server 8000   # http://localhost:8000/?scene=scenes/bedroom.json
 
 python3 detect/tests/test_homography.py && python3 detect/tests/test_camera.py
@@ -42,4 +46,7 @@ Debug output (`--viz`, in `detect/out/`): `*_det.jpg` (boxes + depth), `*_placed
 - `samples/` are COCO photos with no measurements; `scenes/bedroom` uses guessed floor coordinates, so its absolute scale is a guess. Real rooms need measured `plan_points`.
 - Loose boxes (e.g. the bed's box covering a plant pot) can wrongly mark a base as hidden; depth placement is then used, which is less precise.
 - Only floor-standing classes are placed. Wall items (tv, pictures, windows, doors) are detected but not placed yet.
-- Objects are colored boxes until a `model` (.glb) is matched.
+
+## 3D models
+
+`models_catalog.py` retrieves a real model per object: ABO (Amazon Berkeley Objects, CC BY 4.0, ~8k real furniture products with metric GLBs) for furniture, Poly Haven (CC0) for plants. CLIP embeds each product's catalog photo; each detected crop is matched against its class group (dresser/cabinet/nightstand etc. share candidates) with a penalty for size mismatch. The model keeps its real proportions, scaled 0.7–1.4× toward the estimate, and the physics box is set to the model's true bounding box. Downloads go to `engine/models/` (git-ignored, re-fetched by `match`); attribution is written to the scene's `credits`.
