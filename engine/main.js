@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildColliders, resolveCircle } from './collision.js';
+import { buildColliders, resolveCircle, groundHeight } from './collision.js';
 
 // ---------- config (tweak while testing) ----------
 const CFG = {
@@ -10,6 +10,8 @@ const CFG = {
   sprintMult: 1.8,
   accel: 12,            // how fast velocity reaches target (1/s)
   mouseSens: 0.0022,
+  jumpSpeed: 4.8,       // m/s up  (apex = v^2 / 2g ≈ 0.82 m)
+  gravity: 14,          // m/s^2
   fovDefault: 70, fovMin: 25, fovMax: 90,
   thirdDist: 3.0, thirdMin: 1.0, thirdMax: 8.0,
 };
@@ -53,7 +55,7 @@ avatar.visible = false;
 scene.add(avatar);
 
 // ---------- state ----------
-const player = { x: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vz: 0, hits: [] };
+const player = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vy: 0, vz: 0, grounded: true, hits: [] };
 let sceneDef = null;
 let colliders = [];
 let grid = null;
@@ -189,10 +191,12 @@ function buildScene(def) {
 function respawn() {
   const sp = sceneDef.spawn ?? { position: [0, 0, 0], yaw_deg: 0 };
   player.x = sp.position[0];
+  player.y = sp.position[1] ?? 0;
   player.z = sp.position[2];
   player.yaw = THREE.MathUtils.degToRad(sp.yaw_deg ?? 0);
   player.pitch = 0;
-  player.vx = player.vz = 0;
+  player.vx = player.vy = player.vz = 0;
+  player.grounded = true;
 }
 
 // ---------- input ----------
@@ -218,6 +222,7 @@ addEventListener('wheel', (e) => {
   }
 }, { passive: true });
 addEventListener('keydown', (e) => {
+  if (e.code === 'Space') e.preventDefault();
   keys.add(e.code);
   if (e.code === 'KeyC') debugGroup.visible = !debugGroup.visible;
   if (e.code === 'KeyL') labelGroup.visible = !labelGroup.visible;
@@ -258,7 +263,7 @@ function updatePlayer(dt) {
   const hits = new Set();
   const x0 = player.x, z0 = player.z;
   for (let i = 0; i < steps; i++) {
-    const r = resolveCircle(player.x + (player.vx * dt) / steps, player.z + (player.vz * dt) / steps, CFG.radius, colliders);
+    const r = resolveCircle(player.x + (player.vx * dt) / steps, player.z + (player.vz * dt) / steps, CFG.radius, colliders, player.y);
     r.hits.forEach((h) => hits.add(h));
     player.x = r.x; player.z = r.z;
   }
@@ -268,16 +273,33 @@ function updatePlayer(dt) {
     player.vz = (player.z - z0) / dt;
   }
   player.hits = [...hits];
+
+  // vertical: jump, gravity, land on the floor or on top of objects
+  if (keys.has('Space') && player.grounded) {
+    player.vy = CFG.jumpSpeed;
+    player.grounded = false;
+  }
+  // ground is looked up from the pre-fall height so fast falls can't skip a surface
+  const ground = groundHeight(player.x, player.z, CFG.radius, colliders, player.y);
+  player.vy -= CFG.gravity * dt;
+  player.y += player.vy * dt;
+  if (player.y <= ground) {
+    player.y = ground;
+    player.vy = 0;
+    player.grounded = true;
+  } else {
+    player.grounded = false;
+  }
 }
 
 const raycaster = new THREE.Raycaster();
 function updateCamera() {
-  const head = new THREE.Vector3(player.x, CFG.eyeHeight, player.z);
+  const head = new THREE.Vector3(player.x, player.y + CFG.eyeHeight, player.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
   if (!thirdPerson) {
     camera.position.copy(head);
   } else {
-    avatar.position.set(player.x, CFG.eyeHeight / 2, player.z);
+    avatar.position.set(player.x, player.y + CFG.eyeHeight / 2, player.z);
     avatar.rotation.y = player.yaw;
     const back = new THREE.Vector3(0, 0, 1).applyEuler(camera.rotation);
     // pull the camera in if a wall/object is between it and the head
@@ -302,7 +324,7 @@ function updateHud(dt) {
   const deg = ((THREE.MathUtils.radToDeg(player.yaw) % 360) + 360) % 360;
   hud.textContent =
     `scene  ${sceneDef?.name ?? '-'}\n` +
-    `pos    ${player.x.toFixed(2)}, ${player.z.toFixed(2)}\n` +
+    `pos    ${player.x.toFixed(2)}, ${player.y.toFixed(2)}, ${player.z.toFixed(2)}  ${player.grounded ? 'grounded' : 'air'}\n` +
     `yaw    ${deg.toFixed(0)}°   speed ${Math.hypot(player.vx, player.vz).toFixed(2)} m/s\n` +
     `view   ${thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
     `touch  ${player.hits.join(' ') || '-'}\n` +

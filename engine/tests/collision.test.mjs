@@ -1,7 +1,7 @@
 // run: node engine/tests/collision.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { wallCollider, objectCollider, buildColliders, resolveCircle } from '../collision.js';
+import { wallCollider, objectCollider, buildColliders, resolveCircle, groundHeight } from '../collision.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 const r = 0.3;
@@ -45,5 +45,23 @@ const r = 0.3;
   near(door.x, 6); near(door.z, 2.5);
   const sp = def.spawn.position;
   assert.equal(resolveCircle(sp[0], sp[2], r, cs).hits.length, 0, 'spawn overlaps something');
+}
+// jumping: above an object's top it's floor, not wall
+{
+  const bed = [objectCollider({ position: [1, 0, 1.2], size: [1.4, 0.6, 2.0] }, 'bed')];
+  // on the floor next to the bed -> pushed out
+  assert.equal(resolveCircle(1, 1.2, r, bed, 0).hits.length, 1);
+  // feet above the bed top -> free to move over it, and it is the ground
+  assert.equal(resolveCircle(1, 1.2, r, bed, 0.7).hits.length, 0);
+  near(groundHeight(1, 1.2, r, bed, 0.7), 0.6);
+  // falling past the top in one frame still finds it (looked up from pre-fall height)
+  near(groundHeight(1, 1.2, r, bed, 0.61), 0.6);
+  // below the top -> ground is the floor
+  near(groundHeight(1, 1.2, r, bed, 0.3), 0);
+  // walked off the edge -> floor again
+  near(groundHeight(2.5, 1.2, r, bed, 0.6), 0);
+  // walls (2.7 m) are never ground at jump height
+  const w = [wallCollider({ from: [0, 0], to: [6, 0] }, 'w', 2.7)];
+  near(groundHeight(3, 0, r, w, 0.82), 0);
 }
 console.log('collision tests passed');
