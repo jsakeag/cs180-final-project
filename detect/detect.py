@@ -21,6 +21,12 @@ DEPTH_MODEL = "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf"
 DET_MODEL = str(pathlib.Path(__file__).resolve().parent / "weights" / "yolov8s-worldv2.pt")
 
 
+def _uid(path):
+    """Unique-ish output name: dataset frames are all called image.jpg."""
+    p = pathlib.Path(path)
+    return f"{p.parent.name}_{p.stem}" if p.stem == "image" else p.stem
+
+
 def device():
     import torch
     return "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
@@ -99,7 +105,7 @@ def main():
         entry = {"image": str(path), "width": img.width, "height": img.height,
                  "focal_px": round(f, 1), "focal_source": f_src, "detections": dets}
         if D is not None:
-            dpath = out.parent / (pathlib.Path(path).stem + "_depth.npy")
+            dpath = out.parent / (_uid(path) + "_depth.npy")
             np.save(dpath, D.astype(np.float32))
             entry["depth_map"] = str(dpath)
         results.append(entry)
@@ -112,7 +118,7 @@ def main():
                 dn = cv2.applyColorMap((255 * (1 - D / max(D.max(), 1e-6))).astype(np.uint8), cv2.COLORMAP_MAGMA)
                 vis = np.hstack([vis, dn])
             import cv2
-            cv2.imwrite(str(out.parent / (pathlib.Path(path).stem + "_det.jpg")), vis)
+            cv2.imwrite(str(out.parent / (_uid(path) + "_det.jpg")), vis)
 
     out.write_text(json.dumps(results, indent=2))
     print(f"wrote {out}")

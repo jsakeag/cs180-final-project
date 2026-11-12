@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from priors import SIZE_PRIORS  # noqa: E402
+from priors import SIZE_PRIORS, MATCH_GROUPS  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent
 REPO = ROOT.parent
@@ -32,13 +32,7 @@ CLIP_MODEL = "openai/clip-vit-base-patch32"
 UA = {"User-Agent": "cs180-scene-builder/0.1"}
 REFIT_RANGE = (0.7, 1.4)
 MAX_PRIOR_MISMATCH = 1.0   # mean |log size ratio| vs class prior (~2.7x off on average)
-# detectors confuse these; let CLIP pick across the group
-MATCH_GROUPS = [
-    ("cabinet", "dresser", "nightstand", "tv_stand"),
-    ("chair", "armchair"),
-    ("table", "coffee_table", "desk"),
-    ("stool", "bench"),
-]
+
 
 # class -> list of (ABO product types, name must contain any of, name must not contain any of)
 ABO_RULES = {
@@ -189,13 +183,59 @@ def build():
 
 # ------------------------------------------------------------------ matching
 
+def shrink_glb(path, max_side=1024, min_bytes=6_000_000):
+    """Re-encode a .glb's embedded textures (ABO ships 4K PNGs, 25-45 MB per model)
+    down to max_side JPEG (PNG kept only where alpha is used). Geometry is untouched."""
+    import io, struct
+    from PIL import Image
+    path = pathlib.Path(path)
+    b = path.read_bytes()
+    if len(b) < min_bytes:
+        return
+    jlen = struct.unpack_from("<I", b, 12)[0]
+    j = json.loads(b[20:20 + jlen])
+    bin_off = 20 + jlen + 8
+    blen = struct.unpack_from("<I", b, 20 + jlen)[0]
+    binb = b[bin_off:bin_off + blen]
+    views = [binb[v.get("byteOffset", 0):v.get("byteOffset", 0) + v["byteLength"]] for v in j["bufferViews"]]
+    for img in j.get("images", []):
+        if "bufferView" not in img:
+            continue
+        im = Image.open(io.BytesIO(views[img["bufferView"]]))
+        im.load()
+        alpha = im.mode in ("RGBA", "LA", "PA") and im.getchannel("A").getextrema()[0] < 255
+        im = im.convert("RGBA" if alpha else "RGB")
+        im.thumbnail((max_side, max_side))
+        out = io.BytesIO()
+        if alpha:
+            im.save(out, "PNG", optimize=True); img["mimeType"] = "image/png"
+        else:
+            im.save(out, "JPEG", quality=88); img["mimeType"] = "image/jpeg"
+        views[img["bufferView"]] = out.getvalue()
+    newbin = bytearray()
+    for v, data in zip(j["bufferViews"], views):
+        newbin += b"\0" * (-len(newbin) % 4)
+        v["byteOffset"], v["byteLength"] = len(newbin), len(data)
+        newbin += data
+    newbin += b"\0" * (-len(newbin) % 4)
+    j["buffers"][0]["byteLength"] = len(newbin)
+    js = json.dumps(j, separators=(",", ":")).encode()
+    js += b" " * (-len(js) % 4)
+    total = 12 + 8 + len(js) + 8 + len(newbin)
+    path.write_bytes(struct.pack("<4sII", b"glTF", 2, total) + struct.pack("<I4s", len(js), b"JSON") + js
+                     + struct.pack("<I4s", len(newbin), b"BIN\0") + bytes(newbin))
+
+
 def download_model(c):
     """Returns the model path relative to engine/, downloading if needed."""
     if c["source"] == "abo":
         rel = pathlib.Path("models/abo") / f"{c['id']}.glb"
         dst = ENGINE / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
-        return str(rel) if _fetch(c["glb_url"], dst) else None
+        if not _fetch(c["glb_url"], dst):
+            return None
+        shrink_glb(dst)
+        return str(rel)
     # Poly Haven: glTF with separate bin + textures
     req = urllib.request.Request(f"https://api.polyhaven.com/files/{c['id']}", headers=UA)
     files = json.load(urllib.request.urlopen(req))
@@ -346,12 +386,18 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("build")
+    sub.add_parser("shrink", help="shrink textures of already-downloaded ABO models")
     m = sub.add_parser("match")
     m.add_argument("scene")
     m.add_argument("--no-refit", action="store_true")
     args = ap.parse_args()
     if args.cmd == "build":
         build()
+    elif args.cmd == "shrink":
+        for p in sorted((MODELS_DIR / "abo").glob("*.glb")):
+            before = p.stat().st_size
+            shrink_glb(p)
+            print(f"{p.name}: {before / 1e6:.1f} -> {p.stat().st_size / 1e6:.1f} MB")
     else:
         match(args.scene, refit=not args.no_refit)
 

@@ -7,3 +7,7 @@ detect/out/
 detect/weights/
 detect/data/
 engine/models/
+builder/jobs/
+engine/scenes/sun_*.json
+engine/scenes/upload_*.json
+detect/scenes/sun_*/

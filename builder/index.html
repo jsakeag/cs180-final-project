@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scene Builder</title>
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1f22; --muted: #6b6f76; --line: #dedbd4;
+    --accent: #2f6fdb; --accent-ink: #fff; --ok: #2e8b57; --warn: #c0392b; --chip: #eceae4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16181b; --panel: #1f2226; --ink: #e8e6e1; --muted: #9aa0a8; --line: #33373d;
+            --accent: #5b8ff0; --chip: #2a2e33; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+  .tabs button.on { background: var(--chip); color: var(--ink); font-weight: 600; }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(380px, 1.3fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-height: 72vh; overflow: auto; }
+  .card { border: 2px solid transparent; border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--chip); }
+  .card.sel { border-color: var(--accent); }
+  .card img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+  .card .meta { padding: 4px 8px; font-size: 12px; display: flex; justify-content: space-between; color: var(--muted); }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: var(--ok); color: #fff; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  select, input[type=number] { font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+  input[type=number] { width: 80px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border: 0; padding: 8px 14px; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; }
+  button.primary:disabled { opacity: .45; cursor: default; }
+  button.ghost { background: none; border: 1px solid var(--line); color: var(--ink); padding: 5px 10px; border-radius: 6px; cursor: pointer; font: inherit; }
+  .preview { width: 100%; border-radius: 8px; display: block; }
+  pre.log { background: var(--chip); border-radius: 8px; padding: 10px; font-size: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 8px 0; }
+  .muted { color: var(--muted); }
+  .err { color: var(--warn); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .viz { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .viz img { width: 100%; border-radius: 6px; border: 1px solid var(--line); }
+  a.open { display: inline-block; margin-top: 8px; font-weight: 600; color: var(--accent); }
+  .clickers { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; }
+  @media (max-width: 700px) { .clickers { grid-template-columns: 1fr; } }
+  canvas { width: 100%; border-radius: 6px; border: 1px solid var(--line); cursor: crosshair; display: block; touch-action: none; }
+  .thumbs { display: flex; gap: 6px; overflow-x: auto; }
+  .thumbs img { height: 56px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; }
+  .thumbs img.sel { border-color: var(--accent); }
+  .pairs { font-size: 12px; max-height: 120px; overflow: auto; }
+  .pairs span { display: inline-block; background: var(--chip); padding: 2px 6px; border-radius: 4px; margin: 2px; cursor: pointer; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scene Builder</h1>
+  <div class="tabs">
+    <button id="tab-ds" class="on">Dataset (SUN RGB-D)</button>
+    <button id="tab-up">Upload photos</button>
+  </div>
+  <span class="muted" style="margin-left:auto">detect → place → match models → walk</span>
+</header>
+
+<main id="view-ds">
+  <section class="panel">
+    <h2>Gallery</h2>
+    <div class="row">
+      <select id="filter"><option value="">all scenes</option></select>
+      <span class="muted" id="count"></span>
+    </div>
+    <div class="grid" id="gallery"></div>
+  </section>
+  <section class="panel">
+    <h2>Selected</h2>
+    <p class="muted" id="ds-empty">Pick a photo. SUN RGB-D photos are calibrated, so the floor registration and room outline come from the dataset (no clicking), and results are scored against its ground-truth 3D boxes.</p>
+    <div id="ds-sel" class="hidden">
+      <img id="ds-img" class="preview" alt="selected photo" />
+      <div class="row">
+        <label><input type="checkbox" id="ds-models" checked /> match real 3D models</label>
+        <button class="primary" id="ds-run">Build scene</button>
+      </div>
+      <div id="ds-result"></div>
+    </div>
+  </section>
+</main>
+
+<main id="view-up" class="hidden">
+  <section class="panel">
+    <h2>1 · Photos and room</h2>
+    <div class="row"><input type="file" id="files" accept="image/*" multiple /></div>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="row">
+      room <input type="number" id="room-w" value="4.0" step="0.1" min="1" /> ×
+      <input type="number" id="room-d" value="3.5" step="0.1" min="1" /> m,
+      walls <input type="number" id="room-h" value="2.6" step="0.1" min="1.8" /> m
+    </div>
+    <p class="muted">On the plan, the top edge is the wall you face from the bottom edge. Measure the room roughly; corners and walls snap.</p>
+    <h2 style="margin-top:14px">3 · Build</h2>
+    <div class="row">
+      <label><input type="checkbox" id="up-models" checked /> match real 3D models</label>
+      <button class="primary" id="up-run" disabled>Build scene</button>
+      <span class="muted" id="up-ready"></span>
+    </div>
+    <div id="up-result"></div>
+  </section>
+  <section class="panel">
+    <h2>2 · Match floor points (≥ 4 per photo)</h2>
+    <p class="muted" id="up-hint">Upload photos first.</p>
+    <div class="clickers hidden" id="clickers">
+      <div><canvas id="photo-cv"></canvas><div class="muted" id="photo-help"></div></div>
+      <div><canvas id="plan-cv"></canvas><div class="muted" id="plan-help"></div></div>
+    </div>
+    <div class="row hidden" id="pair-row">
+      <div class="pairs" id="pairs"></div>
+      <button class="ghost" id="undo">undo</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = (p, opt) => fetch(p, opt).then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
+
+// ---------------- tabs
+for (const [tab, view] of [['tab-ds', 'view-ds'], ['tab-up', 'view-up']]) {
+  $(tab).onclick = () => {
+    for (const t of ['tab-ds', 'tab-up']) $(t).classList.toggle('on', t === tab);
+    for (const v of ['view-ds', 'view-up']) $(v).classList.toggle('hidden', v !== view);
+    if (view === 'view-up') drawAll();
+  };
+}
+
+// ---------------- job progress (shared)
+function watchJob(jobId, el) {
+  el.innerHTML = '<div class="muted" data-stage>starting…</div><pre class="log"></pre>';
+  const stage = el.querySelector('[data-stage]'), log = el.querySelector('pre');
+  const tick = async () => {
+    const j = await api(`/api/job/${jobId}`);
+    stage.textContent = `${j.stage} · ${j.elapsed}s`;
+    log.textContent = j.log.join('\n');
+    log.scrollTop = log.scrollHeight;
+    if (!j.done) return setTimeout(tick, 1000);
+    if (j.error) { stage.innerHTML = `<span class="err">${j.error}</span>`; return; }
+    let html = `<a class="open" href="${j.scene_url}" target="_blank">Open in engine ↗</a>
+      <span class="muted"> · press P there to view from the photo's camera</span>`;
+    if (j.metrics) {
+      const s = j.metrics.summary;
+      const fmt = (v, unit = '') => v == null ? '–' : `${v}${unit}`;
+      html += `<table style="margin-top:10px">
+        <tr><td>ground-truth objects (floor-standing)</td><td>${s.gt}</td></tr>
+        <tr><td>placed</td><td>${s.pred}</td></tr>
+        <tr><td>matched within 1 m</td><td>${s.matched}</td></tr>
+        <tr><td>precision / recall</td><td>${fmt(s.precision)} / ${fmt(s.recall)}</td></tr>
+        <tr><td>median center error</td><td>${fmt(s.center_err_median_m, ' m')}</td></tr>
+        <tr><td>mean size error (|log ratio|)</td><td>${fmt(s.size_err_mean_log)}</td></tr>
+        <tr><td>median facing error</td><td>${fmt(s.yaw_err_median_deg, '°')}</td></tr>
+        <tr><td>missed</td><td>${j.metrics.missed.join(', ') || '–'}</td></tr>
+        <tr><td>extra</td><td>${j.metrics.false_pos.join(', ') || '–'}</td></tr></table>`;
+    }
+    if (j.viz?.length) html += `<div class="viz">${j.viz.map((u) => `<a href="${u}" target="_blank"><img src="${u}" alt="debug view"></a>`).join('')}</div>`;
+    el.insertAdjacentHTML('beforeend', html);
+  };
+  tick();
+}
+
+// ---------------- dataset tab
+let gallery = [], selected = null;
+async function loadGallery() {
+  gallery = await api('/api/gallery');
+  const types = [...new Set(gallery.map((g) => g.scene))].sort();
+  $('filter').innerHTML = '<option value="">all scenes</option>' + types.map((t) => `<option>${t}</option>`).join('');
+  renderGallery();
+}
+function renderGallery() {
+  const f = $('filter').value;
+  const items = gallery.filter((g) => !f || g.scene === f);
+  $('count').textContent = `${items.length} photos`;
+  $('gallery').innerHTML = items.map((g) => `
+    <div class="card ${selected === g.id ? 'sel' : ''}" data-id="${g.id}">
+      <img loading="lazy" src="${g.url}" alt="${g.scene}">
+      <div class="meta"><span>${g.scene.replace('_', ' ')}</span>${g.built ? '<span class="badge">built</span>' : ''}</div>
+    </div>`).join('');
+  for (const c of $('gallery').children) c.onclick = () => selectFrame(c.dataset.id);
+}
+function selectFrame(id) {
+  selected = id;
+  renderGallery();
+  $('ds-empty').classList.add('hidden');
+  $('ds-sel').classList.remove('hidden');
+  $('ds-img').src = `/img/sun/${id}`;
+  $('ds-result').innerHTML = '';
+}
+$('filter').onchange = renderGallery;
+$('ds-run').onclick = async () => {
+  const { job } = await api('/api/run/sun', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ frame_id: selected, models: $('ds-models').checked }) });
+  watchJob(job, $('ds-result'));
+};
+loadGallery();
+
+// ---------------- upload tab: point matching
+const up = { job: null, images: [], cur: 0, pairs: {}, pending: null };  // pairs[name] = [{img:[u,v], plan:[x,z]}]
+const room = () => ({ width: +$('room-w').value, depth: +$('room-d').value, wall_height: +$('room-h').value });
+const photoCv = $('photo-cv'), planCv = $('plan-cv');
+const photoImg = new Image();
+photoImg.onload = drawAll;
+
+$('files').onchange = async (e) => {
+  const fd = new FormData();
+  for (const f of e.target.files) fd.append('images', f);
+  $('up-hint').textContent = 'uploading…';
+  const r = await api('/api/upload', { method: 'POST', body: fd });
+  Object.assign(up, { job: r.job, images: r.images, cur: 0, pairs: {}, pending: null });
+  for (const im of r.images) up.pairs[im.name] = [];
+  $('thumbs').innerHTML = r.images.map((im, i) => `<img src="${im.url}" data-i="${i}" alt="photo ${i + 1}">`).join('');
+  for (const t of $('thumbs').children) t.onclick = () => showPhoto(+t.dataset.i);
+  $('up-hint').textContent = 'Click a floor point in the photo (a room corner is ideal), then the same spot on the plan. Repeat ≥ 4 times, spread out.';
+  $('clickers').classList.remove('hidden');
+  $('pair-row').classList.remove('hidden');
+  showPhoto(0);
+};
+for (const id of ['room-w', 'room-d']) $(id).oninput = drawAll;
+
+function showPhoto(i) {
+  up.cur = i; up.pending = null;
+  [...$('thumbs').children].forEach((t, j) => t.classList.toggle('sel', j === i));
+  photoImg.src = up.images[i].url;
+}
+const curName = () => up.images[up.cur]?.name;
+
+function planGeom() {
+  const { width: W, depth: D } = room();
+  const pad = 28, cw = planCv.clientWidth || 300;
+  const s = (cw - 2 * pad) / W;
+  return { W, D, pad, s, cw, ch: Math.round(D * s + 2 * pad) };
+}
+function drawAll() {
+  if (!up.images.length) return;
+  // photo
+  const im = up.images[up.cur];
+  const pw = photoCv.clientWidth || 500;
+  photoCv.width = pw * devicePixelRatio; photoCv.height = (pw * im.height / im.width) * devicePixelRatio;
+  const pc = photoCv.getContext('2d'), ps = photoCv.width / im.width;
+  pc.drawImage(photoImg, 0, 0, photoCv.width, photoCv.height);
+  // plan
+  const g = planGeom();
+  planCv.width = g.cw * devicePixelRatio; planCv.height = g.ch * devicePixelRatio;
+  const k = devicePixelRatio, P = (x, z) => [(g.pad + x * g.s) * k, (g.pad + z * g.s) * k];
+  const qc = planCv.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  qc.fillStyle = css.getPropertyValue('--chip'); qc.fillRect(0, 0, planCv.width, planCv.height);
+  qc.strokeStyle = css.getPropertyValue('--line'); qc.lineWidth = 1;
+  for (let x = 0; x <= g.W + 1e-6; x += 0.5) { qc.beginPath(); qc.moveTo(...P(x, 0)); qc.lineTo(...P(x, g.D)); qc.stroke(); }
+  for (let z = 0; z <= g.D + 1e-6; z += 0.5) { qc.beginPath(); qc.moveTo(...P(0, z)); qc.lineTo(...P(g.W, z)); qc.stroke(); }
+  qc.strokeStyle = css.getPropertyValue('--ink'); qc.lineWidth = 3 * k; qc.strokeRect(...P(0, 0), g.W * g.s * k, g.D * g.s * k);
+  qc.fillStyle = css.getPropertyValue('--muted'); qc.font = `${11 * k}px system-ui`;
+  qc.fillText('far wall', ...P(g.W / 2 - 0.3, -0.12)); qc.fillText(`${g.W} m`, ...P(g.W - 0.5, g.D + 0.3));
+  // points
+  const dot = (ctx, x, y, n, color) => {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 6 * k, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${10 * k}px system-ui`; ctx.fillText(n, x - 3 * k, y + 3.5 * k);
+  };
+  const colors = ['#e4572e', '#2f6fdb', '#2e8b57', '#a23bec', '#f0a202', '#17bebb', '#d1495b', '#5c6b73'];
+  (up.pairs[curName()] || []).forEach((p, i) => {
+    dot(pc, p.img[0] * ps, p.img[1] * ps, i + 1, colors[i % 8]);
+    dot(qc, ...P(...p.plan), i + 1, colors[i % 8]);
+  });
+  if (up.pending) dot(pc, up.pending[0] * ps, up.pending[1] * ps, '?', '#888');
+  // other photos' plan points, faint
+  for (const [name, ps2] of Object.entries(up.pairs)) if (name !== curName())
+    for (const p of ps2) { qc.fillStyle = 'rgba(128,128,128,.4)'; qc.beginPath(); qc.arc(...P(...p.plan), 4 * k, 0, 7); qc.fill(); }
+  // text
+  const n = (up.pairs[curName()] || []).length;
+  $('photo-help').textContent = up.pending ? 'now click the same spot on the plan →' : `photo ${up.cur + 1}/${up.images.length}: click a floor point`;
+  $('plan-help').textContent = `${n} pair${n === 1 ? '' : 's'} on this photo${n >= 4 ? ' ✓' : ''}`;
+  $('pairs').innerHTML = (up.pairs[curName()] || []).map((p, i) =>
+    `<span data-i="${i}" title="remove">${i + 1}: (${p.img.map(Math.round).join(', ')}) → (${p.plan.join(', ')}) ✕</span>`).join('');
+  for (const s of $('pairs').children) s.onclick = () => { up.pairs[curName()].splice(+s.dataset.i, 1); drawAll(); };
+  const ready = Object.values(up.pairs).filter((v) => v.length >= 4).length;
+  $('up-run').disabled = ready === 0;
+  $('up-ready').textContent = `${ready}/${up.images.length} photos ready`;
+}
+const evtXY = (cv, e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+photoCv.onclick = (e) => {
+  const [x, y] = evtXY(photoCv, e), im = up.images[up.cur], s = im.width / photoCv.clientWidth;
+  up.pending = [+(x * s).toFixed(1), +(y * s).toFixed(1)];
+  drawAll();
+};
+planCv.onclick = (e) => {
+  if (!up.pending) return;
+  const g = planGeom(), [px, py] = evtXY(planCv, e);
+  const clamp = (v, max) => Math.min(Math.max(v, 0), max);   // floor points are inside the room
+  let x = clamp((px - g.pad) / g.s, g.W), z = clamp((py - g.pad) / g.s, g.D);
+  // snap: to walls within 15 cm, otherwise to 5 cm
+  const snap = (v, max) => (Math.abs(v) < 0.15 ? 0 : Math.abs(v - max) < 0.15 ? max : Math.round(v * 20) / 20);
+  x = +snap(x, g.W).toFixed(2); z = +snap(z, g.D).toFixed(2);
+  up.pairs[curName()].push({ img: up.pending, plan: [x, z] });
+  up.pending = null;
+  drawAll();
+};
+$('undo').onclick = () => { if (up.pending) up.pending = null; else up.pairs[curName()]?.pop(); drawAll(); };
+addEventListener('resize', drawAll);
+
+$('up-run').onclick = async () => {
+  const registrations = up.images.filter((im) => up.pairs[im.name].length >= 4).map((im) => ({
+    name: im.name, image_points: up.pairs[im.name].map((p) => p.img), plan_points: up.pairs[im.name].map((p) => p.plan) }));
+  const { job } = await api('/api/run/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job: up.job, room: room(), registrations, models: $('up-models').checked }) });
+  watchJob(job, $('up-result'));
+};
+</script>
+</body>
+</html>

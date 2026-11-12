@@ -98,6 +98,7 @@ function colliderOutline(c) {
 }
 
 const gltfLoader = new GLTFLoader();
+const models = { total: 0, loaded: 0, failed: 0 };  // shown in the HUD
 
 // Fit a loaded model uniformly into the object's bbox, bottom on the floor.
 function fitModel(root, size) {
@@ -172,12 +173,14 @@ function buildScene(def) {
     holder.add(placeholder);
 
     if (o.model) {
+      models.total++;
       gltfLoader.load(o.model, (gltf) => {
         fitModel(gltf.scene, o.size);
         gltf.scene.traverse((n) => { if (n.isMesh) n.castShadow = n.receiveShadow = true; });
         holder.remove(placeholder);
         holder.add(gltf.scene);
-      }, undefined, (err) => console.warn(`model failed for ${o.id}:`, err));
+        models.loaded++;
+      }, undefined, (err) => { models.failed++; console.warn(`model failed for ${o.id}:`, err); });
     }
 
     const conf = o.source?.confidence;
@@ -359,6 +362,7 @@ function updateHud(dt) {
     `yaw    ${deg.toFixed(0)}°   speed ${Math.hypot(player.vx, player.vz).toFixed(2)} m/s\n` +
     `view   ${photoCam ? `photo ${photoCam.image.split('/').pop()} (WASD to leave)` : thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
     `touch  ${player.hits.join(' ') || '-'}\n` +
+    (models.total ? `models ${models.loaded}/${models.total}${models.failed ? ` (${models.failed} failed)` : models.loaded < models.total ? ' loading...' : ''}\n` : '') +
     `fps    ${fps.toFixed(0)}`;
 }
 

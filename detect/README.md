@@ -50,3 +50,25 @@ Debug output (`--viz`, in `detect/out/`): `*_det.jpg` (boxes + depth), `*_placed
 ## 3D models
 
 `models_catalog.py` retrieves a real model per object: ABO (Amazon Berkeley Objects, CC BY 4.0, ~8k real furniture products with metric GLBs) for furniture, Poly Haven (CC0) for plants. CLIP embeds each product's catalog photo; each detected crop is matched against its class group (dresser/cabinet/nightstand etc. share candidates) with a penalty for size mismatch. The model keeps its real proportions, scaled 0.7–1.4× toward the estimate, and the physics box is set to the model's true bounding box. Downloads go to `engine/models/` (git-ignored, re-fetched by `match`); attribution is written to the scene's `credits`.
+
+## SUN RGB-D + evaluation
+
+`sunrgbd.py` reads the 6.9 GB SUN RGB-D zip remotely (HTTP range requests) and downloads only the needed files per frame (~50 KB). Each frame becomes a schematic (room layout polygon), a registration (floor points projected with the calibrated camera; points hidden by furniture or beyond walls are marked not visible so they don't calibrate depth) and `gt.json` (3D boxes in engine coordinates).
+
+```bash
+.venv/bin/python detect/sunrgbd.py select --n 60 --types bedroom living_room
+.venv/bin/python detect/evaluate.py batch          # -> detect/out/eval/report.json
+```
+
+Baseline, 60 bedroom/living-room frames (perfect registration, 169 floor-standing GT objects):
+
+| | |
+|---|---|
+| recall / precision | 0.65 / 0.53 |
+| median center error | 0.41 m |
+| ... placed by visible floor contact (26) | **0.22 m** |
+| ... placed by depth (84) | 0.46 m |
+| size error (mean \|log ratio\|) | 0.26 (~30%) |
+| median facing error | 21° |
+
+Coordinate notes (learned the hard way): SUN annotation frame is gravity-aligned, X right, **Y down**, Z forward; `Ymin`/`Ymax` are not consistently bottom/top (bottom = max); the layout's floor height can be ~10 cm off, so the floor is taken from furniture bottoms when lower.

@@ -77,13 +77,22 @@ class View:
         self.H_err = reprojection_error(self.H, ip, pp)
         self.w_sign = np.sign((np.c_[ip, np.ones(len(ip))] @ self.H.T)[0, 2])
 
+        # focal length, best source first: calibration > EXIF > from H > assumed FOV.
+        # (H pins f down poorly when the camera is nearly level.)
         H_p2i = np.linalg.inv(self.H)
-        f = estimate_focal(H_p2i, self.w / 2, self.h / 2)
-        if f and 0.3 * self.w < f < 3 * self.w:
-            self.f, self.f_src = f, "from homography"
+        cx, cy = self.w / 2, self.h / 2
+        f_h = estimate_focal(H_p2i, cx, cy)
+        if reg.get("K"):
+            Kc = np.array(reg["K"], float)
+            self.f, self.f_src = float((Kc[0, 0] + Kc[1, 1]) / 2), "calibrated"
+            cx, cy = float(Kc[0, 2]), float(Kc[1, 2])
+        elif str(det_entry.get("focal_source", "")).startswith("exif"):
+            self.f, self.f_src = det_entry["focal_px"], det_entry["focal_source"]
+        elif f_h and 0.3 * self.w < f_h < 3 * self.w:
+            self.f, self.f_src = f_h, "from homography"
         else:
-            self.f, self.f_src = det_entry["focal_px"], det_entry.get("focal_source", "detections")
-        self.K = K_matrix(self.f, self.w / 2, self.h / 2)
+            self.f, self.f_src = det_entry["focal_px"], det_entry.get("focal_source", "assumed")
+        self.K = K_matrix(self.f, cx, cy)
         self.wall_height = 2.7
         self.pose = pose_from_floor_h(H_p2i, self.K, pp[0])
         self.cam_plan = self.pose["C"][:2]
@@ -93,13 +102,16 @@ class View:
         if det_entry.get("depth_map") and pathlib.Path(det_entry["depth_map"]).exists():
             D = np.load(det_entry["depth_map"])
             ratios = []
-            for (u, v), p in zip(ip, pp):
-                ui, vi = int(np.clip(u, 0, self.w - 1)), int(np.clip(v, 0, self.h - 1))
+            vis = reg.get("visible") or [True] * len(ip)
+            for (u, v), p, ok in zip(ip, pp, vis):
+                if not ok or not (0 <= u < self.w and 0 <= v < self.h):
+                    continue  # hidden floor point: the depth there is of whatever covers it
+                ui, vi = int(u), int(v)
                 if D[vi, ui] > 0:
                     ratios.append(plan_point_depth(self.pose, p) / D[vi, ui])
-            if ratios:
-                self.depth_scale = float(np.clip(np.median(ratios), 1 / 3, 3))
-                self.D = D * self.depth_scale
+            # no visible floor point: trust the metric model as is
+            self.depth_scale = float(np.clip(np.median(ratios), 1 / 3, 3)) if ratios else 1.0
+            self.D = D * self.depth_scale
 
     def floor_ok(self, pts):
         ph = np.c_[pts, np.ones(len(pts))] @ self.H.T
@@ -330,17 +342,19 @@ def main():
     args = ap.parse_args()
 
     scene = json.loads(pathlib.Path(args.scene).read_text())
-    dets_by_img = {pathlib.Path(r["image"]).name: r for r in json.loads(pathlib.Path(args.detections).read_text())}
+    det_list = json.loads(pathlib.Path(args.detections).read_text())
+    dets_by_img = {str(pathlib.Path(r["image"]).resolve()): r for r in det_list}
     regs = json.loads(pathlib.Path(args.reg).read_text())
     walls = wall_yaws(scene["schematic"])
 
     placed, views, per_view = [], [], []
     for reg in regs:
         name = pathlib.Path(reg["image"]).name
-        if name not in dets_by_img:
-            print(f"skip {name}: no detections")
+        key = str(pathlib.Path(reg["image"]).resolve())
+        if key not in dets_by_img:
+            print(f"skip {reg['image']}: no detections")
             continue
-        view = View(reg, dets_by_img[name])
+        view = View(reg, dets_by_img[key])
         view.wall_height = scene["schematic"].get("wall_height", 2.7)
         views.append(view)
         floor_dets = [d for d in view.entry["detections"]
@@ -355,7 +369,8 @@ def main():
                 print(f"  skip {d['class']} ({d['conf']:.2f}): {'; '.join(reasons)}")
                 continue
             if not inside_floor(o, scene["schematic"]):
-                print(f"  drop {d['class']} ({d['conf']:.2f}) by {o['source']['placed_by']}: outside the floor")
+                print(f"  drop {d['class']} ({d['conf']:.2f}) by {o['source']['placed_by']}: outside the floor "
+                      f"at ({o['position'][0]:.2f}, {o['position'][2]:.2f})")
                 continue
             clamp_into_floor(o, scene["schematic"])
             mine.append(o)
@@ -383,7 +398,9 @@ def main():
         vdir = pathlib.Path(args.detections).parent
         draw_plan(scene, views, vdir / f"{out.stem}_plan.png")
         for view, mine in per_view:
-            draw_photo(view, mine, vdir / f"{pathlib.Path(view.reg['image']).stem}_placed.jpg")
+            ip = pathlib.Path(view.reg["image"])
+            stem = f"{ip.parent.name}_{ip.stem}" if ip.stem == "image" else ip.stem
+            draw_photo(view, mine, vdir / f"{stem}_placed.jpg")
         print(f"viz in {vdir}")
 
 

@@ -52,5 +52,13 @@ SIZE_PRIORS = {
 
 FLOOR_CLASSES = set(SIZE_PRIORS)
 
+# detectors confuse these; matching and evaluation treat a group as one
+MATCH_GROUPS = [
+    ("cabinet", "dresser", "nightstand", "tv_stand"),
+    ("chair", "armchair"),
+    ("table", "coffee_table", "desk"),
+    ("stool", "bench"),
+]
+
 # measured / prior must land in this range or it's clamped
 CLAMP = (0.6, 1.6)
