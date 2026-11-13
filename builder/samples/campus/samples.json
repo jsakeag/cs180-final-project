@@ -1,0 +1,254 @@
+[
+  {
+    "name": "doe_library",
+    "file": "doe_library.jpg",
+    "title": "Doe Library, main facade, July 2018.jpg",
+    "building": "Doe Memorial Library",
+    "corners": [
+      [
+        40,
+        337
+      ],
+      [
+        1253,
+        337
+      ],
+      [
+        1240,
+        650
+      ],
+      [
+        40,
+        650
+      ]
+    ],
+    "width": 1280,
+    "height": 853,
+    "license": "CC BY-SA 4.0",
+    "credit": "Doe Library, main facade, July 2018.jpg by Louis H. G., CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Doe_Library,_main_facade,_July_2018.jpg"
+  },
+  {
+    "name": "wheeler_hall",
+    "file": "wheeler_hall.jpg",
+    "title": "Wheeler Hall, University of California, Berkeley.jpg",
+    "building": "Wheeler Hall",
+    "corners": [
+      [
+        383,
+        200
+      ],
+      [
+        1003,
+        385
+      ],
+      [
+        1003,
+        739
+      ],
+      [
+        383,
+        681
+      ]
+    ],
+    "width": 1280,
+    "height": 862,
+    "license": "CC BY-SA 3.0",
+    "credit": "Wheeler Hall, University of California, Berkeley.jpg by Bob Collowan, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Wheeler_Hall,_University_of_California,_Berkeley.jpg"
+  },
+  {
+    "name": "dwinelle_hall",
+    "file": "dwinelle_hall.jpg",
+    "title": "Dwinelle hall uc berkeley.jpg",
+    "building": "Dwinelle Hall",
+    "corners": [
+      [
+        80,
+        131
+      ],
+      [
+        1260,
+        152
+      ],
+      [
+        1260,
+        555
+      ],
+      [
+        80,
+        545
+      ]
+    ],
+    "width": 1280,
+    "height": 950,
+    "license": "Public domain",
+    "credit": "Dwinelle hall uc berkeley.jpg by Marcelmarcel (talk), Public domain, https://commons.wikimedia.org/wiki/File:Dwinelle_hall_uc_berkeley.jpg"
+  },
+  {
+    "name": "california_hall",
+    "file": "california_hall.jpg",
+    "title": "California Hall.JPG",
+    "building": "California Hall",
+    "corners": [
+      [
+        110,
+        290
+      ],
+      [
+        1220,
+        300
+      ],
+      [
+        1220,
+        530
+      ],
+      [
+        110,
+        525
+      ]
+    ],
+    "width": 1280,
+    "height": 960,
+    "license": "Public domain",
+    "credit": "California Hall.JPG by unknown, Public domain, https://commons.wikimedia.org/wiki/File:California_Hall.JPG"
+  },
+  {
+    "name": "south_hall",
+    "file": "south_hall.jpg",
+    "title": "South Hall - University of California, Berkeley - DSC04885.JPG",
+    "building": "South Hall",
+    "corners": [
+      [
+        20,
+        120
+      ],
+      [
+        1265,
+        290
+      ],
+      [
+        1265,
+        730
+      ],
+      [
+        20,
+        790
+      ]
+    ],
+    "width": 1280,
+    "height": 853,
+    "license": "CC0",
+    "credit": "South Hall - University of California, Berkeley - DSC04885.JPG by Daderot, CC0, https://commons.wikimedia.org/wiki/File:South_Hall_-_University_of_California,_Berkeley_-_DSC04885.JPG"
+  },
+  {
+    "name": "haviland_hall",
+    "file": "haviland_hall.jpg",
+    "title": "Haviland Hall (Berkeley, CA).JPG",
+    "building": "Haviland Hall",
+    "corners": [
+      [
+        5,
+        60
+      ],
+      [
+        1275,
+        60
+      ],
+      [
+        1275,
+        700
+      ],
+      [
+        5,
+        700
+      ]
+    ],
+    "width": 1280,
+    "height": 960,
+    "license": "CC BY-SA 3.0",
+    "credit": "Haviland Hall (Berkeley, CA).JPG by Sanfranman59, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Haviland_Hall_(Berkeley,_CA).JPG"
+  },
+  {
+    "name": "hearst_mining",
+    "file": "hearst_mining.jpg",
+    "title": "Hearst memorial mining building.jpg",
+    "building": "Hearst Memorial Mining Building",
+    "corners": [
+      [
+        150,
+        140
+      ],
+      [
+        505,
+        275
+      ],
+      [
+        500,
+        880
+      ],
+      [
+        100,
+        890
+      ]
+    ],
+    "width": 1280,
+    "height": 960,
+    "license": "Public domain",
+    "credit": "Hearst memorial mining building.jpg by Kirk Abbott (Coro at en.wikipedia), Public domain, https://commons.wikimedia.org/wiki/File:Hearst_memorial_mining_building.jpg"
+  },
+  {
+    "name": "sproul_hall",
+    "file": "sproul_hall.jpg",
+    "title": "Sproul Hall, Berkeley, California April 2022.jpg",
+    "building": "Sproul Hall",
+    "corners": [
+      [
+        5,
+        150
+      ],
+      [
+        945,
+        410
+      ],
+      [
+        945,
+        640
+      ],
+      [
+        5,
+        640
+      ]
+    ],
+    "width": 1280,
+    "height": 875,
+    "license": "CC BY 2.0",
+    "credit": "Sproul Hall, Berkeley, California April 2022.jpg by Sharon Hahn Darlin, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Sproul_Hall,_Berkeley,_California_April_2022.jpg"
+  },
+  {
+    "name": "evans_hall",
+    "file": "evans_hall.jpg",
+    "title": "UC-Berkeley-020-evans-hall-college-of-engineering.jpg",
+    "building": "Evans Hall",
+    "corners": [
+      [
+        455,
+        292
+      ],
+      [
+        712,
+        290
+      ],
+      [
+        712,
+        560
+      ],
+      [
+        455,
+        590
+      ]
+    ],
+    "width": 1280,
+    "height": 685,
+    "license": "CC0",
+    "credit": "UC-Berkeley-020-evans-hall-college-of-engineering.jpg by Firstcultural, CC0, https://commons.wikimedia.org/wiki/File:UC-Berkeley-020-evans-hall-college-of-engineering.jpg"
+  }
+]

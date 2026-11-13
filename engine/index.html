@@ -27,6 +27,27 @@
                    background: #444; font-size: 11px; color: #ccc; }
     #menu .state.on { background: #2f7d4f; color: #fff; }
     #menu .hint { font-size: 11px; color: #999; }
+    #menu #exit { width: 100%; margin-top: 8px; padding: 8px; font: inherit; font-size: 13px; border: 1px solid #444;
+                  border-radius: 6px; background: none; color: #ddd; cursor: pointer; }
+    #crosshair.paint { width: 14px; height: 14px; margin: -7px 0 0 -7px; background: none; border: 2px solid #ff7a2f; }
+    #paint-panel { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+                   background: rgba(0,0,0,.45); color: #eee; font-size: 13px; z-index: 5; }
+    #paint-panel.hidden { display: none; }
+    #paint-panel .box { background: rgba(20,22,26,.96); border: 1px solid #333; border-radius: 10px; padding: 16px 18px;
+                        width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
+    #paint-panel h2 { margin: 0 0 10px; font-size: 16px; }
+    #paint-panel h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #9aa0a8; }
+    #paint-panel .thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+    #paint-panel .thumbs img { height: 64px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; }
+    #paint-panel .thumbs img:hover { border-color: #ff7a2f; }
+    #paint-panel canvas { width: 100%; border-radius: 6px; margin-top: 8px; cursor: crosshair; }
+    #paint-panel .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+    #paint-panel input[type=text] { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid #444; background: #22262c; color: #eee; }
+    #paint-panel button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid #444; background: #22262c; color: #eee; cursor: pointer; }
+    #paint-panel button.go { background: #ff7a2f; border: 0; color: #1a0e05; font-weight: 600; }
+    #paint-panel button:disabled { opacity: .4; cursor: default; }
+    #paint-panel .dim { color: #9aa0a8; }
+    .hidden { display: none !important; }
     #menu #resume { width: 100%; margin-top: 4px; padding: 9px; font: inherit; font-size: 14px; border: 0;
                     border-radius: 6px; background: #4fa3ff; color: #08131f; cursor: pointer; }
     #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
@@ -44,13 +65,33 @@
 <body>
   <div id="hud">loading…</div>
   <div id="crosshair"></div>
-  <div id="help">click to play · WASD move · Space jump · Shift sprint · mouse look · scroll zoom · V 1st/3rd person · P photo viewpoints · O predicted objects · C colliders · L labels · G grid · R respawn · Esc menu</div>
+  <div id="help">click to play · WASD move · Space jump · Shift sprint · F fly (Space up, Q down) · B paint walls · mouse look · scroll zoom · V 1st/3rd person · P photo viewpoints · O predicted objects · C colliders · L labels · G grid · R respawn · Esc menu</div>
   <div id="overlay">
     <div id="menu">
       <h2>Paused</h2>
       <p>Esc opens this menu. Settings are remembered in this browser.</p>
       <div class="items"></div>
       <button id="resume">Click to play</button>
+      <button id="exit" class="secondary">Exit to Scene Builder</button>
+    </div>
+  </div>
+  <div id="paint-panel" class="hidden">
+    <div class="box">
+      <h2 id="pp-title">Paint</h2>
+      <h3>Use a painted facade (imagine)</h3>
+      <div class="thumbs" id="pp-gallery"></div>
+      <h3>Paint from a photo</h3>
+      <div class="dim">Pick a sample photo or upload your own, then outline the facade with 4 clicks.</div>
+      <div class="thumbs" id="pp-samples" style="margin-top:6px"></div>
+      <div class="row"><input type="file" id="pp-file" accept="image/*" /></div>
+      <canvas id="pp-photo" class="hidden"></canvas>
+      <div class="row"><span class="dim" id="pp-help"></span><button id="pp-reset">reset corners</button></div>
+      <div class="row">
+        <input type="text" id="pp-label" placeholder="name (optional)" />
+        <button class="go" id="pp-run" disabled>Paint this wall</button>
+        <button id="pp-close">Close</button>
+      </div>
+      <div class="dim" id="pp-status" style="margin-top:8px"></div>
     </div>
   </div>
   <script type="module" src="./main.js"></script>

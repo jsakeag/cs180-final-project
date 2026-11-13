@@ -1,0 +1,223 @@
+{
+  "id": "california_0",
+  "building": "California Hall",
+  "size_m": [
+    22.67,
+    8.2
+  ],
+  "texture": "paintings/california_0/facade.jpg",
+  "style": "beaux_arts",
+  "rules": [
+    {
+      "type": "roof",
+      "shape": "hip",
+      "color": "terracotta"
+    }
+  ],
+  "relief": {
+    "image": "paintings/california_0/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "elements": [
+    {
+      "class": "door",
+      "score": 0.757,
+      "box": [
+        312.0,
+        199.6,
+        343.8,
+        245.1
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.356,
+      "box": [
+        306.0,
+        140.6,
+        355.3,
+        245.0
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.343,
+      "box": [
+        219.4,
+        43.0,
+        244.2,
+        97.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.334,
+      "box": [
+        79.3,
+        42.6,
+        103.9,
+        95.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.355,
+      "box": [
+        149.8,
+        42.0,
+        175.4,
+        97.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.329,
+      "box": [
+        466.5,
+        47.9,
+        489.7,
+        102.0
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.312,
+      "box": [
+        524.2,
+        49.4,
+        545.5,
+        99.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.336,
+      "box": [
+        407.0,
+        46.7,
+        429.2,
+        97.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.254,
+      "box": [
+        526.6,
+        147.5,
+        551.9,
+        227.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.296,
+      "box": [
+        579.4,
+        53.0,
+        598.7,
+        99.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.254,
+      "box": [
+        407.8,
+        147.8,
+        435.1,
+        231.1
+      ]
+    },
+    {
+      "class": "balcony",
+      "score": 0.256,
+      "box": [
+        213.7,
+        119.9,
+        252.2,
+        145.7
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.266,
+      "box": [
+        5.9,
+        41.6,
+        31.9,
+        95.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.26,
+      "box": [
+        343.1,
+        46.7,
+        357.1,
+        94.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.279,
+      "box": [
+        296.9,
+        45.4,
+        310.7,
+        95.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.252,
+      "box": [
+        630.7,
+        53.7,
+        649.6,
+        97.8
+      ]
+    }
+  ],
+  "analysis": {
+    "roof": {
+      "tile": 0.998,
+      "sky": 0.0,
+      "flat": 0.002
+    },
+    "style": {
+      "beaux_arts": 0.96,
+      "mission": 0.003,
+      "brutalist": 0.0,
+      "modern_glass": 0.0,
+      "brick": 0.002,
+      "craftsman": 0.034
+    }
+  },
+  "source": {
+    "photo": "california_hall.jpg",
+    "corners": [
+      [
+        110.0,
+        290.0
+      ],
+      [
+        1220.0,
+        300.0
+      ],
+      [
+        1220.0,
+        530.0
+      ],
+      [
+        110.0,
+        525.0
+      ]
+    ],
+    "credit": "California Hall.JPG by unknown, Public domain, https://commons.wikimedia.org/wiki/File:California_Hall.JPG"
+  }
+}

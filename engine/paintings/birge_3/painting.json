@@ -1,0 +1,223 @@
+{
+  "id": "birge_3",
+  "building": "Birge Hall",
+  "size_m": [
+    37.35,
+    22.6
+  ],
+  "texture": "paintings/birge_3/facade.jpg",
+  "style": "beaux_arts",
+  "rules": [
+    {
+      "type": "roof",
+      "shape": "hip",
+      "color": "terracotta"
+    }
+  ],
+  "relief": {
+    "image": "paintings/birge_3/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "elements": [
+    {
+      "class": "door",
+      "score": 0.743,
+      "box": [
+        513.0,
+        560.2,
+        566.3,
+        676.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.359,
+      "box": [
+        360.1,
+        113.7,
+        402.5,
+        268.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.343,
+      "box": [
+        768.2,
+        131.3,
+        805.6,
+        272.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.34,
+      "box": [
+        669.4,
+        126.4,
+        706.9,
+        267.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.353,
+      "box": [
+        244.9,
+        110.3,
+        289.3,
+        272.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.345,
+      "box": [
+        128.4,
+        111.3,
+        172.4,
+        268.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.314,
+      "box": [
+        863.2,
+        138.6,
+        897.5,
+        270.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.306,
+      "box": [
+        953.2,
+        142.7,
+        986.6,
+        274.3
+      ]
+    },
+    {
+      "class": "balcony",
+      "score": 0.287,
+      "box": [
+        1.8,
+        0.5,
+        1118.2,
+        114.5
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.284,
+      "box": [
+        467.6,
+        266.2,
+        614.9,
+        676.4
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.266,
+      "box": [
+        502.9,
+        389.7,
+        582.7,
+        676.2
+      ]
+    },
+    {
+      "class": "balcony",
+      "score": 0.257,
+      "box": [
+        465.8,
+        262.3,
+        614.7,
+        334.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.253,
+      "box": [
+        9.3,
+        113.3,
+        52.1,
+        261.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.311,
+      "box": [
+        487.8,
+        119.8,
+        589.0,
+        265.1
+      ]
+    },
+    {
+      "class": "balcony",
+      "score": 0.251,
+      "box": [
+        465.7,
+        261.1,
+        613.8,
+        304.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.268,
+      "box": [
+        1038.2,
+        148.4,
+        1069.3,
+        269.6
+      ]
+    }
+  ],
+  "analysis": {
+    "roof": {
+      "tile": 0.998,
+      "sky": 0.0,
+      "flat": 0.002
+    },
+    "style": {
+      "beaux_arts": 0.987,
+      "mission": 0.001,
+      "brutalist": 0.0,
+      "modern_glass": 0.0,
+      "brick": 0.001,
+      "craftsman": 0.01
+    }
+  },
+  "source": {
+    "photo": "california_hall.jpg",
+    "corners": [
+      [
+        110.0,
+        290.0
+      ],
+      [
+        1220.0,
+        300.0
+      ],
+      [
+        1220.0,
+        530.0
+      ],
+      [
+        110.0,
+        525.0
+      ]
+    ],
+    "credit": "California Hall.JPG by unknown, Public domain, https://commons.wikimedia.org/wiki/File:California_Hall.JPG"
+  }
+}

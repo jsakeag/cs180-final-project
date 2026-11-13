@@ -1,0 +1,304 @@
+{
+  "id": "wheeler_south",
+  "building": "Wheeler Hall",
+  "size_m": [
+    30.29,
+    15.4
+  ],
+  "texture": "paintings/wheeler_south/facade.jpg",
+  "style": "beaux_arts",
+  "rules": [
+    {
+      "type": "colonnade",
+      "x": [
+        17.76,
+        20.81
+      ],
+      "base": 4.11,
+      "top": 10.77,
+      "radius": 0.78,
+      "order": "ionic",
+      "pediment": false
+    },
+    {
+      "type": "arcade",
+      "arches": [
+        [
+          9.13,
+          0.05,
+          11.26,
+          2.71
+        ],
+        [
+          15.65,
+          0.05,
+          17.68,
+          2.78
+        ],
+        [
+          5.81,
+          0.04,
+          7.94,
+          2.7
+        ],
+        [
+          26.39,
+          0.05,
+          28.32,
+          2.91
+        ],
+        [
+          21.88,
+          0.05,
+          23.84,
+          2.86
+        ],
+        [
+          12.42,
+          0.05,
+          14.5,
+          2.74
+        ],
+        [
+          18.8,
+          0.05,
+          20.79,
+          2.82
+        ],
+        [
+          25.82,
+          3.97,
+          28.1,
+          10.06
+        ],
+        [
+          2.24,
+          0.05,
+          4.48,
+          2.63
+        ]
+      ]
+    }
+  ],
+  "relief": {
+    "image": "paintings/wheeler_south/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "elements": [
+    {
+      "class": "balcony",
+      "score": 0.412,
+      "box": [
+        768.6,
+        315.8,
+        899.0,
+        355.2
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.443,
+      "box": [
+        603.9,
+        141.4,
+        644.8,
+        330.9
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.34,
+      "box": [
+        273.8,
+        380.7,
+        337.8,
+        460.6
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.337,
+      "box": [
+        469.5,
+        378.7,
+        530.4,
+        460.5
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.419,
+      "box": [
+        506.3,
+        136.3,
+        559.5,
+        346.6
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.334,
+      "box": [
+        174.3,
+        381.1,
+        238.1,
+        460.7
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.332,
+      "box": [
+        791.8,
+        374.8,
+        849.7,
+        460.5
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.334,
+      "box": [
+        656.3,
+        376.1,
+        715.2,
+        460.5
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.343,
+      "box": [
+        372.7,
+        379.7,
+        434.9,
+        460.6
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.341,
+      "box": [
+        563.9,
+        377.5,
+        623.6,
+        460.6
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.35,
+      "box": [
+        774.5,
+        160.3,
+        843.0,
+        343.0
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.316,
+      "box": [
+        378.2,
+        423.4,
+        403.7,
+        460.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.33,
+      "box": [
+        544.3,
+        163.7,
+        567.5,
+        234.1
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.281,
+      "box": [
+        67.1,
+        383.2,
+        134.4,
+        460.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.287,
+      "box": [
+        778.4,
+        179.9,
+        813.5,
+        287.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.284,
+      "box": [
+        636.7,
+        166.0,
+        655.6,
+        234.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.257,
+      "box": [
+        282.0,
+        425.5,
+        307.2,
+        460.6
+      ]
+    }
+  ],
+  "analysis": {
+    "column_order": {
+      "doric": 0.395,
+      "ionic": 0.404,
+      "corinthian": 0.201
+    },
+    "roof": {
+      "tile": 0.021,
+      "sky": 0.481,
+      "flat": 0.498
+    },
+    "style": {
+      "beaux_arts": 0.999,
+      "mission": 0.0,
+      "brutalist": 0.0,
+      "modern_glass": 0.0,
+      "brick": 0.0,
+      "craftsman": 0.001
+    }
+  },
+  "source": {
+    "photo": "wheeler_hall.jpg",
+    "corners": [
+      [
+        383.0,
+        200.0
+      ],
+      [
+        1003.0,
+        385.0
+      ],
+      [
+        1003.0,
+        739.0
+      ],
+      [
+        383.0,
+        681.0
+      ]
+    ],
+    "credit": "Wheeler Hall, University of California, Berkeley.jpg by Bob Collowan, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Wheeler_Hall,_University_of_California,_Berkeley.jpg"
+  }
+}

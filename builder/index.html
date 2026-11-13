@@ -64,8 +64,9 @@
   <div class="tabs">
     <button id="tab-ds" class="on">Dataset (SUN RGB-D)</button>
     <button id="tab-up">Upload photos</button>
+    <button id="tab-paint">Paint Berkeley</button>
   </div>
-  <span class="muted" style="margin-left:auto">detect → place → match models → walk</span>
+  <a class="open" style="margin:0 0 0 auto" href="/engine/index.html?scene=scenes/campus_berkeley_core.json" target="_blank">Walk Berkeley ↗</a>
 </header>
 
 <main id="view-ds">
@@ -124,16 +125,47 @@
   </section>
 </main>
 
+<main id="view-paint" class="hidden">
+  <section class="panel">
+    <h2>1 · Photo of a building</h2>
+    <div class="muted">Pick a sample photo (corners pre-marked) or upload your own.</div>
+    <div class="thumbs" id="pt-samples" style="margin:6px 0"></div>
+    <div class="row"><input type="file" id="pt-file" accept="image/*" /></div>
+    <canvas id="pt-photo" class="hidden"></canvas>
+    <div class="row"><span class="muted" id="pt-photo-help">Upload a photo of a campus building.</span>
+      <button class="ghost hidden" id="pt-reset">reset corners</button></div>
+    <h2 style="margin-top:14px">3 · Paint</h2>
+    <div class="row">
+      <input id="pt-label" placeholder="name (optional), e.g. wheeler_south" style="font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);min-width:220px" />
+      <button class="primary" id="pt-run" disabled>Paint this wall</button>
+    </div>
+    <div id="pt-result"></div>
+  </section>
+  <section class="panel">
+    <h2>2 · Where on campus</h2>
+    <p class="muted" id="pt-map-help">Click roughly where the building is, on the side the photo shows. It doesn't need to be exact. Scroll to zoom, drag to pan.</p>
+    <canvas id="pt-map"></canvas>
+    <h2 style="margin-top:14px">Imagine</h2>
+    <p class="muted">Pick a facade, click any wall on the map, apply: Dwinelle's face on Wheeler, Wheeler's columns on anything.</p>
+    <div class="thumbs" id="pt-gallery"></div>
+    <div class="row">
+      <button class="ghost" id="pt-apply" disabled>Apply to the selected wall</button>
+      <span class="muted" id="pt-apply-msg"></span>
+    </div>
+  </section>
+</main>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const api = (p, opt) => fetch(p, opt).then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
 
 // ---------------- tabs
-for (const [tab, view] of [['tab-ds', 'view-ds'], ['tab-up', 'view-up']]) {
+const TABS = [['tab-ds', 'view-ds'], ['tab-up', 'view-up'], ['tab-paint', 'view-paint']];
+for (const [tab, view] of TABS) {
   $(tab).onclick = () => {
-    for (const t of ['tab-ds', 'tab-up']) $(t).classList.toggle('on', t === tab);
-    for (const v of ['view-ds', 'view-up']) $(v).classList.toggle('hidden', v !== view);
+    for (const [t, v] of TABS) { $(t).classList.toggle('on', t === tab); $(v).classList.toggle('hidden', v !== view); }
     if (view === 'view-up') drawAll();
+    if (view === 'view-paint') paintTab();
   };
 }
 
@@ -314,6 +346,205 @@ $('up-run').onclick = async () => {
   const { job } = await api('/api/run/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ job: up.job, room: room(), registrations, models: $('up-models').checked }) });
   watchJob(job, $('up-result'));
+};
+
+// ---------------- Paint Berkeley tab
+const CAMPUS = 'scenes/campus_berkeley_core.json';
+const pt = { campus: null, job: null, photo: null, img: new Image(), corners: [], near: null, wall: null,
+             view: { cx: 0, cz: 0, s: 1.2 }, paintings: [], pick: null };
+const CORNER_NAMES = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
+pt.img.onload = drawPaintPhoto;
+
+async function paintTab() {
+  if (!pt.campus) {
+    pt.campus = await api(`/engine/${CAMPUS}`);
+    const f = pt.campus.schematic.floor;
+    pt.view.cx = (f.min[0] + f.max[0]) / 2; pt.view.cz = (f.min[1] + f.max[1]) / 2;
+  }
+  await Promise.all([loadPaintings(), loadSamples()]);
+  drawMap();
+}
+async function loadSamples() {
+  const samples = await api('/api/samples');
+  $('pt-samples').innerHTML = samples.map((s) => `<img src="${s.url}" data-name="${s.name}" title="${s.building} · ${s.license}" alt="${s.building}">`).join('');
+  for (const im of $('pt-samples').children) im.onclick = async () => {
+    const s = samples.find((x) => x.name === im.dataset.name);
+    const r = await api('/api/samples/use', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: s.name }) });
+    pt.job = r.job; pt.photo = r.images[0];
+    const k = pt.photo.width / s.width;
+    pt.corners = s.corners.map(([x, y]) => [x * k, y * k]);
+    ptCv.classList.remove('hidden'); $('pt-reset').classList.remove('hidden');
+    pt.img.src = pt.photo.url;
+    // jump the map to the sample's building
+    const b = pt.campus.schematic.blocks.find((bb) => bb.name === s.building);
+    if (b) { const n = b.polygon.length; pt.view.cx = b.polygon.reduce((a, p) => a + p[0], 0) / n; pt.view.cz = b.polygon.reduce((a, p) => a + p[1], 0) / n; pt.view.s = 3; drawMap(); }
+    $('pt-map-help').textContent = `Now click the side of ${s.building} the photo shows.`;
+  };
+}
+async function loadPaintings() {
+  pt.paintings = await api('/api/paintings');
+  $('pt-gallery').innerHTML = pt.paintings.map((p) =>
+    `<img src="${p.texture}" data-id="${p.id}" title="${p.id} · ${p.building} · ${p.style} · ${p.rules.join(', ') || 'no rules'}" class="${pt.pick === p.id ? 'sel' : ''}" alt="${p.id}">`).join('');
+  for (const im of $('pt-gallery').children) im.onclick = () => { pt.pick = im.dataset.id; loadPaintings(); updatePaintButtons(); };
+}
+
+// map: blocks from the campus scene, nearest wall to the click highlighted
+const mapCv = $('pt-map');
+function mapGeom() {
+  const w = mapCv.clientWidth || 500, h = Math.round(w * 0.8);
+  const { cx, cz, s } = pt.view;
+  return { w, h, X: (x) => w / 2 + (x - cx) * s, Z: (z) => h / 2 + (z - cz) * s,
+           inv: (px, py) => [cx + (px - w / 2) / s, cz + (py - h / 2) / s] };
+}
+function nearestWall(q) {
+  let best = null;
+  pt.campus.schematic.blocks.forEach((b, bi) => {
+    const P = b.polygon;
+    for (let k = 0; k < P.length; k++) {
+      const a = P[k], c = P[(k + 1) % P.length];
+      const dx = c[0] - a[0], dz = c[1] - a[1], L2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dz) / L2));
+      const d = Math.hypot(q[0] - (a[0] + t * dx), q[1] - (a[1] + t * dz));
+      if (!best || d < best.d) best = { d, bi, k, a, c, name: b.name };
+    }
+  });
+  return best;
+}
+function drawMap() {
+  if (!pt.campus) return;
+  const g = mapGeom(), k = devicePixelRatio;
+  mapCv.width = g.w * k; mapCv.height = g.h * k;
+  const c = mapCv.getContext('2d');
+  c.scale(k, k);
+  const css = getComputedStyle(document.documentElement);
+  c.fillStyle = css.getPropertyValue('--chip'); c.fillRect(0, 0, g.w, g.h);
+  const sch = pt.campus.schematic;
+  c.fillStyle = 'rgba(111,154,82,.35)';
+  for (const poly of sch.surfaces?.grass ?? []) { c.beginPath(); poly.forEach(([x, z], i) => (i ? c.lineTo : c.moveTo).call(c, g.X(x), g.Z(z))); c.fill(); }
+  c.strokeStyle = 'rgba(128,128,128,.35)'; c.lineWidth = 1;
+  for (const { line } of sch.surfaces?.path ?? []) { c.beginPath(); line.forEach(([x, z], i) => (i ? c.lineTo : c.moveTo).call(c, g.X(x), g.Z(z))); c.stroke(); }
+  const painted = new Set((pt.campus.paintings ?? []).map((p) => p.block));
+  sch.blocks.forEach((b, bi) => {
+    c.beginPath(); b.polygon.forEach(([x, z], i) => (i ? c.lineTo : c.moveTo).call(c, g.X(x), g.Z(z))); c.closePath();
+    c.fillStyle = painted.has(bi) ? 'rgba(47,111,219,.35)' : 'rgba(120,110,95,.45)'; c.fill();
+    c.strokeStyle = css.getPropertyValue('--ink'); c.lineWidth = 0.8; c.stroke();
+  });
+  c.fillStyle = css.getPropertyValue('--ink'); c.font = '11px system-ui';
+  if (pt.view.s > 1.0) sch.blocks.forEach((b) => {
+    if (!b.name) return;
+    const n = b.polygon.length, x = b.polygon.reduce((s, p) => s + p[0], 0) / n, z = b.polygon.reduce((s, p) => s + p[1], 0) / n;
+    c.fillText(b.name.replace(/ Hall$/, ''), g.X(x) - 20, g.Z(z));
+  });
+  if (pt.wall) {
+    c.strokeStyle = '#e4572e'; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(g.X(pt.wall.a[0]), g.Z(pt.wall.a[1])); c.lineTo(g.X(pt.wall.c[0]), g.Z(pt.wall.c[1])); c.stroke();
+    c.fillStyle = '#e4572e'; c.beginPath(); c.arc(g.X(pt.near[0]), g.Z(pt.near[1]), 5, 0, 7); c.fill();
+  }
+  $('pt-map-help').textContent = pt.wall ? `${pt.wall.name ?? 'unnamed building'}: highlighted wall` :
+    'Click roughly where the building is, on the side the photo shows. It doesn\'t need to be exact. Scroll to zoom, drag to pan.';
+}
+let drag = null;
+mapCv.onmousedown = (e) => { drag = { x: e.clientX, y: e.clientY, moved: false }; };
+addEventListener('mousemove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+  if (drag.moved) { pt.view.cx -= dx / pt.view.s; pt.view.cz -= dy / pt.view.s; drag.x = e.clientX; drag.y = e.clientY; drawMap(); }
+});
+addEventListener('mouseup', (e) => {
+  if (drag && !drag.moved && e.target === mapCv) {
+    const r = mapCv.getBoundingClientRect();
+    pt.near = mapGeom().inv(e.clientX - r.left, e.clientY - r.top);
+    pt.wall = nearestWall(pt.near);
+    drawMap(); updatePaintButtons();
+  }
+  drag = null;
+});
+mapCv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  pt.view.s = Math.min(8, Math.max(0.5, pt.view.s * Math.exp(-e.deltaY * 0.0015)));
+  drawMap();
+}, { passive: false });
+
+// photo: 4 facade corners
+const ptCv = $('pt-photo');
+$('pt-file').onchange = async (e) => {
+  const fd = new FormData();
+  fd.append('images', e.target.files[0]);
+  $('pt-photo-help').textContent = 'uploading…';
+  const r = await api('/api/upload', { method: 'POST', body: fd });
+  pt.job = r.job; pt.photo = r.images[0]; pt.corners = [];
+  ptCv.classList.remove('hidden'); $('pt-reset').classList.remove('hidden');
+  pt.img.src = pt.photo.url;
+};
+function drawPaintPhoto() {
+  if (!pt.photo) return;
+  const w = ptCv.clientWidth || 500, k = devicePixelRatio, s = w / pt.photo.width;
+  ptCv.width = w * k; ptCv.height = pt.photo.height * s * k;
+  const c = ptCv.getContext('2d');
+  c.scale(k, k);
+  c.drawImage(pt.img, 0, 0, w, pt.photo.height * s);
+  if (pt.corners.length) {
+    c.strokeStyle = '#e4572e'; c.lineWidth = 2; c.fillStyle = 'rgba(228,87,46,.15)';
+    c.beginPath(); pt.corners.forEach(([x, y], i) => (i ? c.lineTo : c.moveTo).call(c, x * s, y * s));
+    if (pt.corners.length === 4) c.closePath();
+    c.fill(); c.stroke();
+    pt.corners.forEach(([x, y], i) => {
+      c.fillStyle = '#e4572e'; c.beginPath(); c.arc(x * s, y * s, 6, 0, 7); c.fill();
+      c.fillStyle = '#fff'; c.font = 'bold 10px system-ui'; c.fillText(i + 1, x * s - 3, y * s + 3.5);
+    });
+  }
+  $('pt-photo-help').textContent = pt.corners.length < 4
+    ? `Click the facade's ${CORNER_NAMES[pt.corners.length]} corner (roofline / ground; rough is fine).`
+    : 'Facade outlined ✓';
+  updatePaintButtons();
+}
+ptCv.onclick = (e) => {
+  if (pt.corners.length >= 4) return;
+  const r = ptCv.getBoundingClientRect(), s = pt.photo.width / ptCv.clientWidth;
+  pt.corners.push([+((e.clientX - r.left) * s).toFixed(1), +((e.clientY - r.top) * s).toFixed(1)]);
+  drawPaintPhoto();
+};
+$('pt-reset').onclick = () => { pt.corners = []; drawPaintPhoto(); };
+addEventListener('resize', () => { drawPaintPhoto(); drawMap(); });
+
+function updatePaintButtons() {
+  $('pt-run').disabled = !(pt.photo && pt.corners.length === 4 && pt.near);
+  $('pt-apply').disabled = !(pt.pick && pt.near);
+}
+function engineLink() {
+  // stand 40 m out from the chosen wall, facing it
+  const { a, c } = pt.wall, mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2;
+  let dx = pt.near[0] - mx, dz = pt.near[1] - mz, L = Math.hypot(dx, dz);
+  if (L < 0.5) { dx = -(c[1] - a[1]); dz = c[0] - a[0]; L = Math.hypot(dx, dz); }
+  const x = mx + dx / L * 40, z = mz + dz / L * 40, yaw = Math.atan2(dx / L, dz / L);
+  return `/engine/index.html?scene=${CAMPUS}&at=${x.toFixed(1)},${z.toFixed(1)},${yaw.toFixed(3)}`;
+}
+$('pt-run').onclick = async () => {
+  const { job } = await api('/api/paint', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job: pt.job, name: pt.photo.name, corners: pt.corners, near: pt.near, label: $('pt-label').value }) });
+  const el = $('pt-result');
+  watchJob(job, el);
+  const poll = setInterval(async () => {
+    const j = await api(`/api/job/${job}`);
+    if (!j.done) return;
+    clearInterval(poll);
+    if (j.error) return;
+    pt.campus = await api(`/engine/${CAMPUS}?t=${Date.now()}`);
+    await loadPaintings(); drawMap();
+    const newest = pt.paintings.find((p) => j.log.some((l) => l.includes(`paintings/${p.id}/`)));
+    el.querySelector('a.open')?.setAttribute('href', engineLink());
+    if (newest) el.insertAdjacentHTML('beforeend', `<p class="muted" style="margin-top:8px">${newest.style} · rules: ${newest.rules.join(', ') || 'none'}</p><img class="preview" src="${newest.elements}?t=${Date.now()}" alt="detected facade elements">`);
+  }, 1500);
+};
+$('pt-apply').onclick = async () => {
+  try {
+    const r = await api('/api/paint/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ painting: pt.pick, near: pt.near }) });
+    pt.campus = await api(`/engine/${CAMPUS}?t=${Date.now()}`);
+    drawMap();
+    $('pt-apply-msg').innerHTML = `${r.message} · <a class="open" href="${engineLink()}" target="_blank">see it ↗</a>`;
+  } catch (err) { $('pt-apply-msg').textContent = String(err).slice(0, 200); }
 };
 </script>
 </body>

@@ -1,0 +1,296 @@
+{
+  "id": "doe_glade",
+  "building": "Doe Memorial Library",
+  "size_m": [
+    69.16,
+    19.0
+  ],
+  "texture": "paintings/doe_glade/facade.jpg",
+  "style": "beaux_arts",
+  "rules": [
+    {
+      "type": "colonnade",
+      "x": [
+        8.82,
+        13.44,
+        18.09,
+        22.78,
+        27.39,
+        32.01,
+        39.18,
+        46.17
+      ],
+      "base": 5.56,
+      "top": 16.09,
+      "radius": 0.91,
+      "order": "ionic",
+      "pediment": false
+    },
+    {
+      "type": "roof",
+      "shape": "hip",
+      "color": "terracotta"
+    }
+  ],
+  "relief": {
+    "image": "paintings/doe_glade/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "elements": [
+    {
+      "class": "door",
+      "score": 0.459,
+      "box": [
+        1098.4,
+        424.3,
+        1131.1,
+        548.1
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.439,
+      "box": [
+        975.7,
+        419.7,
+        1072.5,
+        560.7
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.332,
+      "box": [
+        1520.5,
+        120.6,
+        1618.2,
+        310.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.312,
+      "box": [
+        145.7,
+        121.5,
+        237.6,
+        313.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.326,
+      "box": [
+        1656.7,
+        120.1,
+        1755.1,
+        310.0
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.311,
+      "box": [
+        696.6,
+        121.3,
+        790.9,
+        312.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.323,
+      "box": [
+        1384.1,
+        120.8,
+        1479.0,
+        309.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.293,
+      "box": [
+        706.6,
+        426.3,
+        784.2,
+        522.1
+      ]
+    },
+    {
+      "class": "balcony",
+      "score": 0.268,
+      "box": [
+        3.8,
+        10.4,
+        2041.9,
+        553.9
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.256,
+      "box": [
+        647.6,
+        87.5,
+        701.4,
+        400.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.315,
+      "box": [
+        1794.3,
+        119.6,
+        1891.4,
+        310.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.307,
+      "box": [
+        283.7,
+        121.6,
+        375.8,
+        314.1
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.252,
+      "box": [
+        234.4,
+        86.8,
+        288.1,
+        398.7
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.312,
+      "box": [
+        420.7,
+        121.3,
+        515.1,
+        313.7
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.304,
+      "box": [
+        559.1,
+        121.3,
+        652.4,
+        313.7
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.252,
+      "box": [
+        370.9,
+        85.3,
+        424.9,
+        399.0
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.259,
+      "box": [
+        1133.6,
+        83.4,
+        1187.2,
+        394.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.31,
+      "box": [
+        1247.5,
+        120.2,
+        1342.2,
+        311.9
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.261,
+      "box": [
+        510.1,
+        87.6,
+        561.1,
+        397.1
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.251,
+      "box": [
+        1338.8,
+        84.2,
+        1395.8,
+        394.0
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.271,
+      "box": [
+        919.6,
+        426.3,
+        949.9,
+        545.8
+      ]
+    }
+  ],
+  "analysis": {
+    "column_order": {
+      "doric": 0.179,
+      "ionic": 0.447,
+      "corinthian": 0.374
+    },
+    "roof": {
+      "tile": 0.938,
+      "sky": 0.0,
+      "flat": 0.062
+    },
+    "style": {
+      "beaux_arts": 0.99,
+      "mission": 0.001,
+      "brutalist": 0.0,
+      "modern_glass": 0.001,
+      "brick": 0.0,
+      "craftsman": 0.008
+    }
+  },
+  "source": {
+    "photo": "doe_library.jpg",
+    "corners": [
+      [
+        40.0,
+        337.0
+      ],
+      [
+        1253.0,
+        337.0
+      ],
+      [
+        1240.0,
+        650.0
+      ],
+      [
+        40.0,
+        650.0
+      ]
+    ],
+    "credit": "Doe Library, main facade, July 2018.jpg by Louis H. G., CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Doe_Library,_main_facade,_July_2018.jpg"
+  }
+}

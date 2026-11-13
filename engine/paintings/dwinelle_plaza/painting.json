@@ -1,0 +1,273 @@
+{
+  "id": "dwinelle_plaza",
+  "building": "Dwinelle Hall",
+  "size_m": [
+    65.38,
+    22.6
+  ],
+  "texture": "paintings/dwinelle_plaza/facade.jpg",
+  "style": "beaux_arts",
+  "rules": [
+    {
+      "type": "roof",
+      "shape": "hip",
+      "color": "terracotta"
+    }
+  ],
+  "relief": {
+    "image": "paintings/dwinelle_plaza/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "elements": [
+    {
+      "class": "balcony",
+      "score": 0.454,
+      "box": [
+        326.0,
+        354.7,
+        1727.3,
+        422.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.344,
+      "box": [
+        1020.1,
+        61.9,
+        1106.8,
+        179.0
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.341,
+      "box": [
+        837.4,
+        64.1,
+        925.3,
+        182.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.339,
+      "box": [
+        656.2,
+        65.8,
+        744.0,
+        183.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.336,
+      "box": [
+        1201.1,
+        63.3,
+        1286.9,
+        180.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.331,
+      "box": [
+        475.3,
+        67.1,
+        561.8,
+        186.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.326,
+      "box": [
+        1379.4,
+        64.2,
+        1465.1,
+        180.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.312,
+      "box": [
+        297.9,
+        69.8,
+        383.1,
+        188.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.309,
+      "box": [
+        1554.5,
+        65.7,
+        1641.0,
+        181.7
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.31,
+      "box": [
+        207.2,
+        261.2,
+        246.4,
+        674.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.258,
+      "box": [
+        1201.3,
+        253.4,
+        1290.9,
+        400.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.281,
+      "box": [
+        836.2,
+        253.6,
+        926.9,
+        364.1
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.294,
+      "box": [
+        1012.6,
+        470.9,
+        1119.1,
+        671.3
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.354,
+      "box": [
+        874.3,
+        549.9,
+        921.9,
+        667.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.267,
+      "box": [
+        652.9,
+        254.8,
+        744.3,
+        366.1
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.362,
+      "box": [
+        1713.9,
+        256.1,
+        1756.5,
+        674.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.26,
+      "box": [
+        1018.1,
+        252.8,
+        1110.1,
+        398.2
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.259,
+      "box": [
+        837.7,
+        549.1,
+        926.0,
+        667.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.275,
+      "box": [
+        1727.7,
+        68.3,
+        1810.4,
+        181.8
+      ]
+    },
+    {
+      "class": "arch",
+      "score": 0.289,
+      "box": [
+        826.6,
+        471.0,
+        934.8,
+        670.4
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.268,
+      "box": [
+        1015.7,
+        547.0,
+        1081.3,
+        668.5
+      ]
+    }
+  ],
+  "analysis": {
+    "roof": {
+      "tile": 1.0,
+      "sky": 0.0,
+      "flat": 0.0
+    },
+    "style": {
+      "beaux_arts": 0.601,
+      "mission": 0.107,
+      "brutalist": 0.011,
+      "modern_glass": 0.031,
+      "brick": 0.012,
+      "craftsman": 0.24
+    }
+  },
+  "source": {
+    "photo": "dwinelle_hall.jpg",
+    "corners": [
+      [
+        80.0,
+        131.0
+      ],
+      [
+        1260.0,
+        152.0
+      ],
+      [
+        1260.0,
+        555.0
+      ],
+      [
+        80.0,
+        545.0
+      ]
+    ],
+    "credit": "Dwinelle hall uc berkeley.jpg by Marcelmarcel (talk), Public domain, https://commons.wikimedia.org/wiki/File:Dwinelle_hall_uc_berkeley.jpg"
+  }
+}

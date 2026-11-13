@@ -186,6 +186,84 @@ def run_upload():
     return _start(f"{job}_{uuid.uuid4().hex[:4]}", steps, scene_rel, work)
 
 
+# ------------------------------------------------------------------ Paint Berkeley
+
+CAMPUS = "scenes/campus_berkeley_core.json"
+
+
+@app.get("/api/paintings")
+def paintings():
+    out = []
+    for p in sorted((ENGINE / "paintings").glob("*/painting.json")):
+        d = json.loads(p.read_text())
+        out.append({"id": d["id"], "building": d["building"], "style": d["style"],
+                    "rules": [r["type"] for r in d["rules"]], "texture": f"/engine/{d['texture']}",
+                    "elements": f"/engine/paintings/{d['id']}/elements.jpg", "size_m": d["size_m"]})
+    return jsonify(out)
+
+
+SAMPLES = REPO / "builder" / "samples" / "campus"
+
+
+@app.get("/samples/campus/<name>")
+def sample_file(name):
+    return send_from_directory(SAMPLES, name)
+
+
+@app.get("/api/samples")
+def samples():
+    """Openly licensed campus photos with suggested facade corners (builder/samples/campus)."""
+    items = json.loads((SAMPLES / "samples.json").read_text())
+    return jsonify([{**s, "url": f"/samples/campus/{s['file']}"} for s in items])
+
+
+@app.post("/api/samples/use")
+def use_sample():
+    """Start a paint job from a sample photo, as if it had been uploaded."""
+    items = {s["name"]: s for s in json.loads((SAMPLES / "samples.json").read_text())}
+    s = items.get(request.get_json().get("name"))
+    if not s:
+        abort(404)
+    job = "upload_" + uuid.uuid4().hex[:8]
+    d = JOBS / job / "images"
+    d.mkdir(parents=True)
+    import shutil
+    shutil.copy(SAMPLES / s["file"], d / "photo_00.jpg")
+    (JOBS / job / "credit.txt").write_text(s["credit"])
+    return jsonify({"job": job, "images": [{"name": "photo_00.jpg", "url": f"/img/job/{job}/photo_00.jpg",
+                                            "width": s["width"], "height": s["height"]}]})
+
+
+@app.post("/api/paint")
+def paint():
+    """body: {job, name (uploaded photo), corners [[x,y] x4 TL TR BR BL], near [x, z], label}"""
+    body = request.get_json()
+    work = JOBS / body["job"]
+    photo = work / "images" / body["name"]
+    if not photo.exists() or len(body.get("corners", [])) != 4:
+        abort(400, "need an uploaded photo and 4 corners")
+    label = "".join(ch for ch in body.get("label") or "" if ch.isalnum() or ch in "_-")[:40]
+    cmd = [PY, "detect/paint.py", "add", "--scene", str(ENGINE / CAMPUS), "--photo", str(photo),
+           "--corners", " ".join(f"{x:.1f},{y:.1f}" for x, y in body["corners"]),
+           "--near", str(body["near"][0]), str(body["near"][1]),
+           "--credit", (work / "credit.txt").read_text() if (work / "credit.txt").exists() else "uploaded"]
+    if label:
+        cmd += ["--name", label]
+    return _start(f"paint_{uuid.uuid4().hex[:6]}", [("painting the facade", cmd)], CAMPUS, work)
+
+
+@app.post("/api/paint/apply")
+def paint_apply():
+    """Imagine: put an existing painting on another wall. body: {painting, near [x, z]}"""
+    body = request.get_json()
+    pid = "".join(ch for ch in body["painting"] if ch.isalnum() or ch in "_-")
+    r = subprocess.run([PY, "detect/paint.py", "apply", "--scene", str(ENGINE / CAMPUS), "--painting", pid,
+                        "--near", str(body["near"][0]), str(body["near"][1])], cwd=REPO, capture_output=True, text=True)
+    if r.returncode:
+        abort(400, (r.stdout + r.stderr)[-400:])
+    return jsonify({"message": r.stdout.strip()})
+
+
 @app.get("/api/job/<job_id>")
 def job_status(job_id):
     j = jobs.get(job_id)

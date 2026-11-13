@@ -13,6 +13,8 @@ const CFG = {
   jumpSpeed: 4.8,       // m/s up  (apex = v^2 / 2g ≈ 0.82 m)
   gravity: 14,          // m/s^2
   fovDefault: 70, fovMin: 25, fovMax: 90,
+  flySpeed: 12,         // m/s when flying (Shift = x3)
+  flyClimb: 8,          // m/s up (Space) / down (Q)
   thirdDist: 3.0, thirdMin: 1.0, thirdMax: 8.0,
 };
 
@@ -56,7 +58,7 @@ scene.add(avatar);
 
 // ---------- settings (Esc menu; remembered per browser) ----------
 const SETTINGS_KEY = 'engine-settings';
-const settings = { photoTextures: true, predicted: true, labels: true };
+const settings = { photoTextures: true, relief: true, predicted: true, labels: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* private mode */ }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ } }
 
@@ -67,6 +69,8 @@ let colliders = [];
 let grid = null;
 let thirdPerson = false;
 let thirdDist = CFG.thirdDist;
+let flying = false;      // F toggles
+let panelOpen = false;    // paint panel up: don't show the Esc menu
 let photoCam = null;     // when set, camera is locked to a photo's recovered viewpoint
 let photoIdx = -1;
 const keys = new Set();
@@ -241,9 +245,10 @@ function buildOutdoor(sch) {
   for (const poly of surf.plaza ?? []) worldGroup.add(flatMesh(new THREE.ShapeGeometry(flatShape(poly)), OUT_MAT.plaza, 0.015));
   if (surf.path?.length) worldGroup.add(flatMesh(stripGeometry(surf.path), OUT_MAT.path, 0.03));
   if (surf.steps?.length) worldGroup.add(flatMesh(stripGeometry(surf.steps), OUT_MAT.steps, 0.035));
-  for (const b of sch.blocks ?? []) {
+  (sch.blocks ?? []).forEach((b, bi) => {
     const g = new THREE.ExtrudeGeometry(flatShape(b.polygon), { depth: b.height, bevelEnabled: false });
     const m = new THREE.Mesh(g, [OUT_MAT.roof, OUT_MAT.building]);
+    m.userData.block = bi;
     m.rotation.x = -Math.PI / 2;
     m.castShadow = m.receiveShadow = true;
     worldGroup.add(m);
@@ -255,8 +260,405 @@ function buildOutdoor(sch) {
       label.scale.multiplyScalar(4);
       labelGroup.add(label);
     }
+  });
+}
+// ---------- Paint Berkeley: facades from photos + rules that reshape buildings ----------
+const STONE = new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.85 });
+const TERRACOTTA = new THREE.MeshStandardMaterial({ color: 0xb4532f, roughness: 0.8, side: THREE.DoubleSide });
+function wallFrame(block, edge, span, edgeEnd = edge) {
+  // right-handed frame on a building wall: x along the wall (viewer's right when facing
+  // it from outside), y up, z out of the wall. Origin = the wall's left end at the ground.
+  const P = block.polygon;
+  let area = 0;
+  for (let i = 0; i < P.length; i++) { const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % P.length]; area += x0 * z1 - x1 * z0; }
+  const a = new THREE.Vector3(P[edge][0], 0, P[edge][1]);
+  const b = new THREE.Vector3(P[(edgeEnd + 1) % P.length][0], 0, P[(edgeEnd + 1) % P.length][1]);   // a run of edges = one wall
+  const t = b.clone().sub(a).normalize();
+  const n = new THREE.Vector3(t.z, 0, -t.x).multiplyScalar(area > 0 ? 1 : -1);   // outward
+  const up = new THREE.Vector3(0, 1, 0);
+  const x = up.clone().cross(n);                                                   // viewer's right
+  const [s0, s1] = span;
+  const origin = x.dot(t) > 0 ? a.clone().addScaledVector(t, s0) : a.clone().addScaledVector(t, s1);
+  const g = new THREE.Group();
+  g.matrixAutoUpdate = false;
+  g.matrix.makeBasis(x, up, n).setPosition(origin);
+  return g;
+}
+function columnMesh(radius, height, order) {
+  // turned column: base, tapering shaft (entasis), capital by order
+  const r = radius, h = height, pts = [];
+  const cap = order === 'corinthian' ? 0.12 : order === 'ionic' ? 0.07 : 0.05;
+  pts.push([0, 0], [r * 1.35, 0], [r * 1.35, h * 0.03], [r * 1.15, h * 0.05], [r, h * 0.06]);
+  for (let i = 1; i <= 8; i++) { const f = i / 8; pts.push([r * (1 - 0.14 * f * f), h * (0.06 + f * (0.94 - cap - 0.06))]); }
+  pts.push([r * (order === 'corinthian' ? 1.25 : 1.05), h * (1 - cap * 0.4)], [r * 1.3, h * (1 - cap * 0.2)], [r * 1.3, h], [0, h]);
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.LatheGeometry(pts.map(([u, v]) => new THREE.Vector2(u, v)), 24), STONE));
+  const abacus = new THREE.Mesh(new THREE.BoxGeometry(r * 2.8, h * 0.025, r * 2.8), STONE);
+  abacus.position.y = h - h * 0.0125;
+  g.add(abacus);
+  if (order === 'ionic') {      // scroll volutes on both sides
+    for (const sgn of [-1, 1]) {
+      const v = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.32, r * 0.32, r * 2.4, 16), STONE);
+      v.rotation.x = Math.PI / 2;
+      v.position.set(sgn * r * 1.15, h * (1 - 0.06), 0);
+      g.add(v);
+    }
+  }
+  g.traverse((m) => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+  return g;
+}
+function archSurround(x0, y0, x1, y1, depth) {
+  const r = (x1 - x0) / 2, m = Math.max(0.25, 0.3 * r);
+  const outer = new THREE.Shape([[x0 - m, y0], [x1 + m, y0], [x1 + m, y1 + m], [x0 - m, y1 + m]].map(([u, v]) => new THREE.Vector2(u, v)));
+  const hole = new THREE.Path();
+  hole.moveTo(x0, y0);
+  hole.lineTo(x1, y0);
+  hole.lineTo(x1, Math.max(y0, y1 - r));
+  hole.absarc((x0 + x1) / 2, Math.max(y0, y1 - r), r, 0, Math.PI, false);
+  hole.lineTo(x0, y0);
+  outer.holes.push(hole);
+  const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth, bevelEnabled: false }), STONE);
+  mesh.castShadow = mesh.receiveShadow = true;
+  return mesh;
+}
+function tileCap(block) {
+  // footprint isn't a rectangle (wings, courtyards): a low tiled cap that follows it
+  const shape = new THREE.Shape(block.polygon.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 1.2, bevelEnabled: false }), TERRACOTTA);
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = block.height;
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+function hipRoof(block) {
+  // terracotta hip roof over the footprint's oriented bounding box (PCA axes), if the
+  // footprint is close to that box; otherwise a cap that follows the footprint
+  const P = block.polygon, n = P.length;
+  const cx = P.reduce((s, p) => s + p[0], 0) / n, cz = P.reduce((s, p) => s + p[1], 0) / n;
+  let sxx = 0, szz = 0, sxz = 0;
+  for (const [x, z] of P) { sxx += (x - cx) ** 2; szz += (z - cz) ** 2; sxz += (x - cx) * (z - cz); }
+  const ang = 0.5 * Math.atan2(2 * sxz, sxx - szz);
+  const u = [Math.cos(ang), Math.sin(ang)], v = [-Math.sin(ang), Math.cos(ang)];
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (const [x, z] of P) {
+    const pu = (x - cx) * u[0] + (z - cz) * u[1], pv = (x - cx) * v[0] + (z - cz) * v[1];
+    u0 = Math.min(u0, pu); u1 = Math.max(u1, pu); v0 = Math.min(v0, pv); v1 = Math.max(v1, pv);
+  }
+  let area = 0;
+  for (let i = 0; i < n; i++) { const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % n]; area += x0 * z1 - x1 * z0; }
+  if (Math.abs(area / 2) < 0.75 * (u1 - u0) * (v1 - v0)) return tileCap(block);
+  const o = 0.6;  // eave overhang
+  u0 -= o; u1 += o; v0 -= o; v1 += o;
+  const L = u1 - u0, W = v1 - v0, long = L >= W;
+  const half = Math.min(L, W) / 2, rise = Math.min(6, half * Math.tan(THREE.MathUtils.degToRad(24)));
+  const um = (u0 + u1) / 2, vm = (v0 + v1) / 2;
+  const r0 = long ? [u0 + half, vm] : [um, v0 + half], r1 = long ? [u1 - half, vm] : [um, v1 - half];
+  const W2 = (pu, pv, y) => [cx + pu * u[0] + pv * v[0], y, cz + pu * u[1] + pv * v[1]];
+  const y0 = block.height, y1 = block.height + rise;
+  const c = [W2(u0, v0, y0), W2(u1, v0, y0), W2(u1, v1, y0), W2(u0, v1, y0)];
+  const R0 = W2(...r0, y1), R1 = W2(...r1, y1);
+  const tris = long
+    ? [[c[0], c[1], R1], [c[0], R1, R0], [c[2], c[3], R0], [c[2], R0, R1], [c[1], c[2], R1], [c[3], c[0], R0]]
+    : [[c[1], c[2], R1], [c[1], R1, R0], [c[3], c[0], R0], [c[3], R0, R1], [c[0], c[1], R0], [c[2], c[3], R1]];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(2), 3));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, TERRACOTTA);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+// relief: base plane this far out from the wall, so recesses (down to -RELIEF_BASE) stay visible
+const RELIEF_BASE = 1.2;
+const reliefCache = new Map();
+function loadRelief(info) {
+  if (!reliefCache.has(info.image)) reliefCache.set(info.image, new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, img.width, img.height).data;
+      const [lo, hi] = info.range, z = new Float32Array(img.width * img.height);
+      for (let i = 0; i < z.length; i++) z[i] = lo + (d[i * 4] / 255) * (hi - lo);
+      resolve({ w: img.width, h: img.height, z });
+    };
+    img.onerror = () => resolve(null);
+    img.src = info.image;
+  }));
+  return reliefCache.get(info.image);
+}
+function reliefGeometry(relief, L, H, reps) {
+  // grid over the wall (x 0..L, y 0..H); each vertex pushed out by the relief sample
+  const nx = Math.min(1200, relief.w * reps), ny = Math.min(240, relief.h);
+  const g = new THREE.PlaneGeometry(L, H, nx - 1, ny - 1);
+  g.translate(L / 2, H / 2, 0);
+  const pos = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const u = uv.getX(i) * reps, v = uv.getY(i);
+    const fx = (u - Math.floor(u === reps ? reps - 1e-6 : u)) * (relief.w - 1), fy = (1 - v) * (relief.h - 1);
+    const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(x0 + 1, relief.w - 1), y1 = Math.min(y0 + 1, relief.h - 1);
+    const ax = fx - x0, ay = fy - y0, Z = relief.z, W = relief.w;
+    const zz = (1 - ax) * (1 - ay) * Z[y0 * W + x0] + ax * (1 - ay) * Z[y0 * W + x1] + (1 - ax) * ay * Z[y1 * W + x0] + ax * ay * Z[y1 * W + x1];
+    pos.setZ(i, Math.max(zz, -RELIEF_BASE + 0.06));
+  }
+  g.computeVertexNormals();
+  return g;
+}
+async function buildPaintings(def) {
+  const blocks = def.schematic?.blocks ?? [];
+  const roofed = new Set();
+  for (const app of def.paintings ?? []) {
+    const p = await fetch(`paintings/${app.painting}/painting.json`).then((r) => r.json()).catch(() => null);
+    if (!p || sceneDef !== def) continue;
+    const block = blocks[app.block];
+    if (!block) continue;
+    const frame = wallFrame(block, app.edge, app.span, app.edge_end ?? app.edge);
+    const L = app.span[1] - app.span[0], H = block.height;
+    const [Ws, Hs] = p.size_m;
+    const reps = Math.max(1, Math.round(L / Ws)), sx = L / (reps * Ws), sy = H / Hs;
+    // the facade itself, repeated to the wall's length, stretched to its height; with its
+    // relief map, a displaced surface (the photo's depth: columns out, windows in)
+    const relief = settings.photoTextures && settings.relief && p.relief ? await loadRelief(p.relief) : null;
+    if (sceneDef !== def) return;
+    if (settings.photoTextures) {
+      const tex = photoTexture(p.texture);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.repeat.set(reps, 1);
+      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+      let face;
+      if (relief) {
+        face = new THREE.Mesh(reliefGeometry(relief, L, H, reps), mat);
+        face.position.set(0, 0, RELIEF_BASE);
+        face.castShadow = true;
+      } else {
+        face = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
+        face.position.set(L / 2, H / 2, 0.06);
+      }
+      face.receiveShadow = true;
+      frame.add(face);
+    }
+    // rules: the building's shape follows what the facade showed
+    for (const r of p.rules ?? []) {
+      if (relief && (r.type === 'colonnade' || r.type === 'arcade')) continue;   // the photo's own relief shows them
+      if (r.type === 'colonnade') {
+        const rad = Math.min(1.2, r.radius * Math.min(sx, sy)), colH = (r.top - r.base) * sy, out = rad + 0.5;
+        for (let i = 0; i < reps; i++) {     // each repeat of the facade gets its own portico
+          let xmin = Infinity, xmax = -Infinity;
+          for (const x of r.x) {
+            const X = (x + i * Ws) * sx;
+            const c = columnMesh(rad, colH, r.order);
+            c.position.set(X, r.base * sy, out);
+            frame.add(c);
+            xmin = Math.min(xmin, X); xmax = Math.max(xmax, X);
+          }
+          const ent = new THREE.Mesh(new THREE.BoxGeometry(xmax - xmin + rad * 3, colH * 0.12, out + rad * 1.4), STONE);
+          ent.position.set((xmin + xmax) / 2, r.base * sy + colH + colH * 0.06, (out + rad * 1.4) / 2);
+          ent.castShadow = ent.receiveShadow = true;
+          frame.add(ent);
+          if (r.pediment) {
+            const w = xmax - xmin + rad * 3, tri = new THREE.Shape([[-w / 2, 0], [w / 2, 0], [0, w * 0.18]].map(([u, v]) => new THREE.Vector2(u, v)));
+            const ped = new THREE.Mesh(new THREE.ExtrudeGeometry(tri, { depth: out + rad * 1.4, bevelEnabled: false }), STONE);
+            ped.position.set((xmin + xmax) / 2, r.base * sy + colH * 1.12, 0);
+            frame.add(ped);
+          }
+        }
+      } else if (r.type === 'arcade') {
+        for (let i = 0; i < reps; i++) for (const [x0, y0, x1, y1] of r.arches) {
+          frame.add(archSurround((x0 + i * Ws) * sx, y0 * sy, (x1 + i * Ws) * sx, y1 * sy, 0.4));
+        }
+      } else if (r.type === 'roof' && !roofed.has(app.block)) {
+        roofed.add(app.block);
+        worldGroup.add(hipRoof(block));
+      }
+    }
+    frame.updateMatrixWorld(true);
+    worldGroup.add(frame);
   }
 }
+
+// ---------- paint mode (B): aim at a building wall, click, paint it ----------
+let paintMode = false, hoverWall = null, hoverMesh = null, paintTarget = null;
+const paintRay = new THREE.Raycaster();
+const HILITE = new THREE.MeshBasicMaterial({ color: 0xff7a2f, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthTest: false });
+function wallRun(block, k, tolDeg = 12) {
+  // consecutive footprint edges facing the same way = one wall (same rule as paint.py)
+  const P = block.polygon, n = P.length;
+  let area = 0;
+  for (let i = 0; i < n; i++) { const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % n]; area += x0 * z1 - x1 * z0; }
+  const normal = (i) => {
+    const a = P[((i % n) + n) % n], b = P[(((i + 1) % n) + n) % n];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1, s = area > 0 ? 1 : -1;
+    return [s * dz / L, -s * dx / L];
+  };
+  const nk = normal(k), cos = Math.cos(THREE.MathUtils.degToRad(tolDeg));
+  const same = (i) => { const m = normal(i); return m[0] * nk[0] + m[1] * nk[1] > cos; };
+  let first = k, last = k;
+  while (same(first - 1) && k - first < n - 1) first--;
+  while (same(last + 1) && last - first < n - 1) last++;
+  first = ((first % n) + n) % n; last = ((last % n) + n) % n;
+  const a = P[first], b = P[(last + 1) % n];
+  return { first, last, L: Math.hypot(b[0] - a[0], b[1] - a[1]), normal: nk };
+}
+function updatePaintHover() {
+  if (!paintMode || !sceneDef?.outdoor) return;
+  paintRay.setFromCamera(new THREE.Vector2(0, 0), camera);
+  paintRay.far = 250;
+  const blocks = worldGroup.children.filter((m) => m.userData.block !== undefined);
+  const hit = paintRay.intersectObjects(blocks, false)[0];
+  let wall = null;
+  if (hit) {
+    const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+    if (Math.abs(n.y) < 0.4) {
+      const bi = hit.object.userData.block, block = sceneDef.schematic.blocks[bi], P = block.polygon;
+      let best = null;
+      for (let k = 0; k < P.length; k++) {
+        const a = P[k], c = P[(k + 1) % P.length], dx = c[0] - a[0], dz = c[1] - a[1], L2 = dx * dx + dz * dz || 1;
+        const t = Math.max(0, Math.min(1, ((hit.point.x - a[0]) * dx + (hit.point.z - a[1]) * dz) / L2));
+        const d = Math.hypot(hit.point.x - a[0] - t * dx, hit.point.z - a[1] - t * dz);
+        if (!best || d < best.d) best = { d, k };
+      }
+      const run = wallRun(block, best.k);
+      wall = { bi, block, ...run, near: [hit.point.x + n.x * 1.0, hit.point.z + n.z * 1.0] };
+    }
+  }
+  const key = wall ? `${wall.bi}:${wall.first}` : null;
+  if (key !== (hoverWall ? `${hoverWall.bi}:${hoverWall.first}` : null)) {
+    if (hoverMesh) { worldGroup.remove(hoverMesh); hoverMesh = null; }
+    if (wall) {
+      hoverMesh = wallFrame(wall.block, wall.first, [0, wall.L], wall.last);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(wall.L, wall.block.height), HILITE);
+      plane.position.set(wall.L / 2, wall.block.height / 2, 0.15);
+      plane.renderOrder = 10;
+      hoverMesh.add(plane);
+      hoverMesh.updateMatrixWorld(true);
+      worldGroup.add(hoverMesh);
+    }
+  }
+  hoverWall = wall;
+  if (wall) hoverWall.near = wall.near;   // keep the latest aim point
+}
+function setPaintMode(on) {
+  paintMode = on && !!sceneDef?.outdoor;
+  if (!paintMode && hoverMesh) { worldGroup.remove(hoverMesh); hoverMesh = null; hoverWall = null; }
+  document.getElementById('crosshair').classList.toggle('paint', paintMode);
+}
+
+// paint panel
+const panel = document.getElementById('paint-panel');
+const pp = { job: null, photo: null, img: new Image(), corners: [], polling: null };
+const CORNER_NAMES = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
+const ppCv = document.getElementById('pp-photo');
+pp.img.onload = drawPanelPhoto;
+async function openPaintPanel(wall) {
+  paintTarget = wall;
+  panelOpen = true;
+  document.exitPointerLock();
+  overlay.classList.add('hidden');
+  panel.classList.remove('hidden');
+  document.getElementById('pp-title').textContent = `Paint ${wall.block.name ?? 'this building'} · ${wall.L.toFixed(0)} m wall`;
+  document.getElementById('pp-status').textContent = '';
+  const api = (p, o) => fetch(p, o).then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
+  try {
+    const [paintings, samples] = await Promise.all([api('/api/paintings'), api('/api/samples')]);
+    const g = document.getElementById('pp-gallery');
+    g.innerHTML = paintings.map((p) => `<img src="${p.texture}" data-id="${p.id}" title="${p.id} · ${p.building} · ${p.rules.join(', ') || 'no rules'}" alt="${p.id}">`).join('')
+      || '<span class="dim">no facades painted yet</span>';
+    for (const im of g.querySelectorAll('img')) im.onclick = () => applyPainting(im.dataset.id);
+    const sg = document.getElementById('pp-samples');
+    sg.innerHTML = samples.map((s) => `<img src="${s.url}" data-name="${s.name}" title="${s.title} (${s.license})${s.building ? ' · ' + s.building : ''}" alt="${s.title}">`).join('');
+    for (const im of sg.querySelectorAll('img')) im.onclick = () => useSample(samples.find((s) => s.name === im.dataset.name));
+  } catch (err) {
+    document.getElementById('pp-status').textContent = 'Painting needs the scene builder server with painting support: '
+      + 'start (or restart) .venv/bin/python builder/server.py and open the game from it.';
+  }
+}
+function closePaintPanel() {
+  panel.classList.add('hidden');
+  panelOpen = false;
+  renderer.domElement.requestPointerLock();
+}
+async function reloadScene() {
+  const def = await fetch(`${scenePath}?t=${Date.now()}`).then((r) => r.json());
+  sceneDef = def;
+  rebuildKeepingPlayer();
+  if (paintMode) setPaintMode(true);
+}
+async function applyPainting(id) {
+  const st = document.getElementById('pp-status');
+  st.textContent = `applying ${id}…`;
+  const r = await fetch('/api/paint/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ painting: id, near: paintTarget.near }) });
+  if (!r.ok) { st.textContent = (await r.text()).slice(0, 200); return; }
+  await reloadScene();
+  closePaintPanel();
+}
+function showPanelPhoto(job, photo, corners = []) {
+  Object.assign(pp, { job, photo, corners: corners.map((c) => [...c]) });
+  ppCv.classList.remove('hidden');
+  pp.img.src = photo.url;
+}
+async function useSample(s) {
+  const r = await fetch('/api/samples/use', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: s.name }) }).then((x) => x.json());
+  // suggested corners are in the original photo's pixels; the job copy may be smaller
+  const k = r.images[0].width / s.width;
+  showPanelPhoto(r.job, r.images[0], (s.corners ?? []).map(([x, y]) => [x * k, y * k]));
+}
+document.getElementById('pp-file').onchange = async (e) => {
+  const fd = new FormData();
+  fd.append('images', e.target.files[0]);
+  document.getElementById('pp-status').textContent = 'uploading…';
+  const r = await fetch('/api/upload', { method: 'POST', body: fd }).then((x) => x.json());
+  showPanelPhoto(r.job, r.images[0]);
+};
+function drawPanelPhoto() {
+  if (!pp.photo) return;
+  const w = ppCv.clientWidth || 520, k = devicePixelRatio, s = w / pp.photo.width;
+  ppCv.width = w * k; ppCv.height = pp.photo.height * s * k;
+  const c = ppCv.getContext('2d');
+  c.scale(k, k);
+  c.drawImage(pp.img, 0, 0, w, pp.photo.height * s);
+  if (pp.corners.length) {
+    c.strokeStyle = '#ff7a2f'; c.lineWidth = 2; c.fillStyle = 'rgba(255,122,47,.18)';
+    c.beginPath(); pp.corners.forEach(([x, y], i) => (i ? c.lineTo : c.moveTo).call(c, x * s, y * s));
+    if (pp.corners.length === 4) c.closePath();
+    c.fill(); c.stroke();
+    pp.corners.forEach(([x, y], i) => { c.fillStyle = '#ff7a2f'; c.beginPath(); c.arc(x * s, y * s, 6, 0, 7); c.fill();
+      c.fillStyle = '#fff'; c.font = 'bold 10px system-ui'; c.fillText(i + 1, x * s - 3, y * s + 3.5); });
+  }
+  document.getElementById('pp-help').textContent = pp.corners.length < 4
+    ? `click the facade's ${CORNER_NAMES[pp.corners.length]} corner (rough is fine)` : 'facade outlined ✓ (reset to redo)';
+  document.getElementById('pp-run').disabled = pp.corners.length !== 4;
+}
+ppCv.onclick = (e) => {
+  if (pp.corners.length >= 4) return;
+  const r = ppCv.getBoundingClientRect(), s = pp.photo.width / ppCv.clientWidth;
+  pp.corners.push([(e.clientX - r.left) * s, (e.clientY - r.top) * s]);
+  drawPanelPhoto();
+};
+document.getElementById('pp-reset').onclick = () => { pp.corners = []; drawPanelPhoto(); };
+document.getElementById('pp-close').onclick = closePaintPanel;
+document.getElementById('pp-run').onclick = async () => {
+  const st = document.getElementById('pp-status');
+  st.textContent = 'reading the facade (first run loads the models, ~30 s)…';
+  document.getElementById('pp-run').disabled = true;
+  const { job } = await fetch('/api/paint', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job: pp.job, name: pp.photo.name, corners: pp.corners, near: paintTarget.near,
+                           label: document.getElementById('pp-label').value }) }).then((r) => r.json());
+  clearInterval(pp.polling);
+  pp.polling = setInterval(async () => {
+    const j = await fetch(`/api/job/${job}`).then((r) => r.json());
+    const last = j.log.filter((l) => /rules|elements|aspect/.test(l)).slice(-2).join(' · ');
+    st.textContent = `${j.stage} · ${j.elapsed}s ${last ? '· ' + last.trim() : ''}`;
+    if (!j.done) return;
+    clearInterval(pp.polling);
+    if (j.error) { st.textContent = j.error; document.getElementById('pp-run').disabled = false; return; }
+    await reloadScene();
+    closePaintPanel();
+  }, 1500);
+};
+
 // simple stand-ins for street furniture without a model
 const PROCEDURAL = {
   tree(o) {
@@ -377,7 +779,7 @@ function buildScene(def) {
     worldGroup.add(m);
   }
 
-  if (def.outdoor) buildOutdoor(sch);
+  if (def.outdoor) { buildOutdoor(sch); buildPaintings(def); }
 
   // objects
   for (const o of def.objects ?? []) {
@@ -434,7 +836,9 @@ function buildScene(def) {
 }
 
 function respawn() {
-  const sp = sceneDef.spawn ?? { position: [0, 0, 0], yaw_deg: 0 };
+  let sp = sceneDef.spawn ?? { position: [0, 0, 0], yaw_deg: 0 };
+  const at = params.get('at')?.split(',').map(Number);   // ?at=x,z,yaw(rad): start somewhere specific
+  if (at?.length === 3 && at.every(Number.isFinite)) sp = { position: [at[0], 0, at[1]], yaw_deg: THREE.MathUtils.radToDeg(at[2]) };
   player.x = sp.position[0];
   player.y = sp.position[1] ?? 0;
   player.z = sp.position[2];
@@ -447,9 +851,12 @@ function respawn() {
 // ---------- input ----------
 const overlay = document.getElementById('overlay');
 overlay.addEventListener('click', (e) => { if (e.target === overlay) renderer.domElement.requestPointerLock(); });
-renderer.domElement.addEventListener('click', () => renderer.domElement.requestPointerLock());
+renderer.domElement.addEventListener('click', () => {
+  if (paintMode && hoverWall && document.pointerLockElement === renderer.domElement) openPaintPanel(hoverWall);
+  else if (!panelOpen) renderer.domElement.requestPointerLock();
+});
 document.addEventListener('pointerlockchange', () => {
-  overlay.classList.toggle('hidden', document.pointerLockElement === renderer.domElement);
+  overlay.classList.toggle('hidden', document.pointerLockElement === renderer.domElement || panelOpen);
   if (!document.pointerLockElement) keys.clear();
 });
 document.addEventListener('mousemove', (e) => {
@@ -473,9 +880,11 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyL') toggleLabels();
   if (e.code === 'KeyG' && grid) grid.visible = !grid.visible;
   if (e.code === 'KeyR') respawn();
+  if (e.code === 'KeyF') { flying = !flying; player.vy = 0; }
+  if (e.code === 'KeyB') setPaintMode(!paintMode);
   if (e.code === 'KeyO') togglePredicted();
   if (e.code === 'KeyP') cyclePhotoCam();
-  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code) && photoCam) exitPhotoCam();
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyQ'].includes(e.code) && photoCam) exitPhotoCam();
   if (e.code === 'KeyV') { thirdPerson = !thirdPerson; avatar.visible = thirdPerson; }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -497,7 +906,8 @@ function updatePlayer(dt) {
 
   // camera forward is -z rotated by yaw
   const sinY = Math.sin(player.yaw), cosY = Math.cos(player.yaw);
-  const speed = CFG.walkSpeed * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? CFG.sprintMult : 1);
+  const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  const speed = flying ? CFG.flySpeed * (sprint ? 3 : 1) : CFG.walkSpeed * (sprint ? CFG.sprintMult : 1);
   const tx = (-sinY * f + cosY * s) * speed;
   const tz = (-cosY * f - sinY * s) * speed;
 
@@ -522,6 +932,13 @@ function updatePlayer(dt) {
   }
   player.hits = [...hits];
 
+  if (flying) {   // no gravity: Space climbs, Q descends; walls still block, roofs don't
+    const climb = ((keys.has('Space') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0)) * CFG.flyClimb * (sprint ? 3 : 1);
+    player.vy += (climb - player.vy) * a;
+    player.y = Math.max(groundHeight(player.x, player.z, CFG.radius, colliders, player.y), player.y + player.vy * dt);
+    player.grounded = false;
+    return;
+  }
   // vertical: jump, gravity, land on the floor or on top of objects
   if (keys.has('Space') && player.grounded) {
     player.vy = CFG.jumpSpeed;
@@ -608,12 +1025,14 @@ function rebuildKeepingPlayer() {
   Object.assign(player, keep);
 }
 function togglePhotoTextures() { settings.photoTextures = !settings.photoTextures; saveSettings(); rebuildKeepingPlayer(); renderMenu(); }
+function toggleRelief() { settings.relief = !settings.relief; saveSettings(); rebuildKeepingPlayer(); renderMenu(); }
 function toggleLabels() { settings.labels = !settings.labels; labelGroup.visible = settings.labels; saveSettings(); renderMenu(); }
 
 // ---------- Esc menu ----------
 const menu = document.getElementById('menu');
 const MENU_ITEMS = [
   ['photoTextures', 'Photo textures', 'floor, walls and furniture colors taken from the photos (off = plain, faster)', togglePhotoTextures],
+  ['relief', '3D facades', 'painted walls get the depth (columns out, windows in) estimated from their photo', toggleRelief],
   ['predicted', 'Predicted furniture', 'pieces the room model added where no photo looked', togglePredicted],
   ['labels', 'Labels', 'class names over objects', toggleLabels],
 ];
@@ -627,6 +1046,7 @@ menu.addEventListener('click', (e) => {
   if (!b) return;
   e.stopPropagation();
   if (b.id === 'resume') { renderer.domElement.requestPointerLock(); return; }
+  if (b.id === 'exit') { location.href = '/'; return; }
   const item = MENU_ITEMS.find(([k]) => k === b.dataset.k);
   if (item) item[3]();
 });
@@ -642,11 +1062,12 @@ function updateHud(dt) {
   const deg = ((THREE.MathUtils.radToDeg(player.yaw) % 360) + 360) % 360;
   hud.textContent =
     `scene  ${sceneDef?.name ?? '-'}\n` +
-    `pos    ${player.x.toFixed(2)}, ${player.y.toFixed(2)}, ${player.z.toFixed(2)}  ${player.grounded ? 'grounded' : 'air'}\n` +
+    `pos    ${player.x.toFixed(2)}, ${player.y.toFixed(2)}, ${player.z.toFixed(2)}  ${flying ? 'flying (F to land)' : player.grounded ? 'grounded' : 'air'}\n` +
     `yaw    ${deg.toFixed(0)}°   speed ${Math.hypot(player.vx, player.vz).toFixed(2)} m/s\n` +
     `view   ${photoCam ? `photo ${photoCam.image.split('/').pop()} (WASD to leave)` : thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
     `touch  ${player.hits.join(' ') || '-'}\n` +
     (nPredicted() ? `room   ${sceneDef.schematic.room?.scene_type ?? ''} · ${nPredicted()} predicted ${settings.predicted ? '(O hides)' : '(hidden, O shows)'}\n` : '') +
+    (paintMode ? `paint  ${hoverWall ? (hoverWall.block.name ?? 'building') + ' · click to paint this wall' : 'aim at a building wall'} (B to stop)\n` : '') +
     (models.total ? `models ${models.loaded}/${models.total}${models.failed ? ` (${models.failed} failed)` : models.loaded < models.total ? ' loading...' : ''}\n` : '') +
     `fps    ${fps.toFixed(0)}`;
 }
@@ -662,6 +1083,7 @@ function loop() {
     }
     updatePlayer(dt);
     updateCamera();
+    updatePaintHover();
     updateHud(dt);
   }
   renderer.render(scene, camera);
@@ -674,4 +1096,5 @@ fetch(scenePath)
   .catch((err) => { hud.textContent = `failed to load scene: ${err.message}`; });
 
 // expose for console poking while testing
-window.dbg = { CFG, player, get colliders() { return colliders; }, scene };
+window.dbg = { CFG, player, get colliders() { return colliders; }, scene,
+  setPaintMode, openPaintPanel, get hoverWall() { return hoverWall; } };

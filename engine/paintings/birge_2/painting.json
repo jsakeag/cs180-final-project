@@ -1,0 +1,223 @@
+{
+  "id": "birge_2",
+  "building": "Birge Hall",
+  "size_m": [
+    30.15,
+    22.6
+  ],
+  "texture": "paintings/birge_2/facade.jpg",
+  "style": "beaux_arts",
+  "rules": [
+    {
+      "type": "roof",
+      "shape": "hip",
+      "color": "terracotta"
+    }
+  ],
+  "relief": {
+    "image": "paintings/birge_2/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "elements": [
+    {
+      "class": "balcony",
+      "score": 0.565,
+      "box": [
+        153.7,
+        356.0,
+        797.2,
+        428.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.321,
+      "box": [
+        470.0,
+        63.4,
+        510.8,
+        179.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.316,
+      "box": [
+        302.3,
+        66.3,
+        343.2,
+        182.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.309,
+      "box": [
+        553.9,
+        64.4,
+        593.7,
+        179.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.322,
+      "box": [
+        386.4,
+        65.7,
+        426.8,
+        180.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.305,
+      "box": [
+        219.5,
+        68.2,
+        259.8,
+        185.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.299,
+      "box": [
+        137.8,
+        71.8,
+        176.7,
+        186.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.301,
+      "box": [
+        636.1,
+        65.5,
+        675.9,
+        179.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.293,
+      "box": [
+        717.6,
+        67.1,
+        756.7,
+        181.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.269,
+      "box": [
+        796.1,
+        69.6,
+        835.2,
+        182.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.262,
+      "box": [
+        385.6,
+        254.9,
+        427.4,
+        363.4
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.258,
+      "box": [
+        554.1,
+        254.9,
+        595.8,
+        400.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.256,
+      "box": [
+        469.0,
+        253.9,
+        513.4,
+        400.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.257,
+      "box": [
+        301.2,
+        255.8,
+        343.5,
+        365.4
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.252,
+      "box": [
+        401.5,
+        550.3,
+        427.1,
+        673.3
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.253,
+      "box": [
+        340.5,
+        441.4,
+        385.1,
+        676.1
+      ]
+    }
+  ],
+  "analysis": {
+    "roof": {
+      "tile": 1.0,
+      "sky": 0.0,
+      "flat": 0.0
+    },
+    "style": {
+      "beaux_arts": 0.955,
+      "mission": 0.009,
+      "brutalist": 0.001,
+      "modern_glass": 0.004,
+      "brick": 0.001,
+      "craftsman": 0.031
+    }
+  },
+  "source": {
+    "photo": "dwinelle_hall.jpg",
+    "corners": [
+      [
+        80.0,
+        131.0
+      ],
+      [
+        1260.0,
+        152.0
+      ],
+      [
+        1260.0,
+        555.0
+      ],
+      [
+        80.0,
+        545.0
+      ]
+    ],
+    "credit": "Dwinelle hall uc berkeley.jpg by Marcelmarcel (talk), Public domain, https://commons.wikimedia.org/wiki/File:Dwinelle_hall_uc_berkeley.jpg"
+  }
+}

@@ -157,3 +157,50 @@ Not yet:
 - **Real models** for the street furniture.
 
 Map data © OpenStreetMap contributors (ODbL).
+
+## Paint Berkeley
+
+People photograph campus buildings and say roughly where on the map they were. Each photo paints a building and reshapes it. Any facade can also go on any other building ("imagine").
+
+1. **Annotate** (builder → Paint Berkeley tab): upload a photo, click the facade's 4 corners, click near the building on the campus map. Precision isn't needed.
+2. **Rectify.** The corners give a homography (proj4a's `compute_h`) that unwarps the facade into a flat texture. Its real width-to-height ratio also comes from that homography: the facade's two axes, seen by the camera as K⁻¹h₁ and K⁻¹h₂, must be at right angles. That constraint gives the focal length, and their length ratio is the aspect. The height comes from the map, and the painting repeats along the wall, since a photo often shows only part of a facade. Consecutive map segments facing the same way count as one wall.
+3. **3D from the photo: depth relief.** Depth Anything V2 (metric outdoor) estimates per-pixel depth, which is unwarped with the facade homography. At 20–40 m its absolute error is meters but smooth, while real relief (columns, window recesses, cornices) is under a meter and sharp. So the depth is high-passed (local 2 m Gaussian mean minus depth), and then:
+   - vegetation and sky are masked out by color (specks removed first)
+   - a 0.5 m median filter cleans it
+   - it fades to flat at the wall's ends and is capped at ±1 m
+
+   The result is saved as `relief.png`. The engine displaces the facade mesh with it (6 samples per meter), so each building gets its own columns and recesses rather than stock ones. The procedural colonnade and arcade are then skipped, since the photo already shows them; the roof rule still applies. The Esc menu toggles "3D facades". It works best on head-on, uncluttered photos (Doe's north face); small or bush-covered photos come out lumpy.
+4. **Read the facade.**
+   - Grounding DINO (open-vocabulary detector) finds columns, arches, windows, doors, pediments and balconies. YOLO-World found almost nothing on facades.
+   - CLIP reads the column order (Doric, Ionic or Corinthian) from capitals cut out of a sharper rectification at 80 px per meter, the overall style, and whether a red tile roof shows above the facade.
+5. **Rules** (the engine builds them procedurally; no 3D model files needed):
+
+   | facade shows | building gets |
+   |---|---|
+   | ≥ 2 tall, narrow columns, at most 8 diameters apart (lamp posts don't count) | a colonnade in front of the wall: turned columns with capitals by order, an entablature, a pediment if one was seen |
+   | ≥ 3 similar arches | an arcade: stone arch surrounds stepped out from the wall |
+   | red tile roof | a terracotta hip roof, or a low tile cap that follows the footprint if it isn't rectangular |
+
+   Columns found at a regular spacing fill in the gaps the detector missed.
+6. **Imagine:** `paint.py apply --painting dwinelle_plaza --building "Wheeler Hall" --facing N`, or click a facade and a wall in the UI. The painting's rules come with it.
+
+```bash
+.venv/bin/python detect/paint.py add --photo photo.jpg --corners "x,y x,y x,y x,y" --near X Z    # TL TR BR BL
+.venv/bin/python detect/paint.py apply --painting wheeler_south --near X Z
+.venv/bin/python detect/paint.py list
+```
+
+**In the game:** press **B**, aim at a building (its wall lights up orange) and click. A panel opens:
+- apply any painted facade with one click, or
+- paint from a photo: pick one of the samples (corners pre-marked) or upload your own and click 4 corners.
+
+The scene reloads in place when done. The Esc menu also has **Exit to Scene Builder**.
+
+**Sample photos:** `builder/samples/campus/` has 9 openly licensed Wikimedia Commons photos with suggested corners in `samples.json`, and each photo's credit carries into its painting:
+- Beaux-Arts: Doe, Wheeler, California, Haviland, Hearst Mining (its modern glass addition)
+- red-tile roof: Dwinelle
+- Second Empire brick: South Hall
+- modern concrete: Sproul
+- Brutalist: Evans
+
+Demo paintings use Wikimedia Commons photos of Wheeler (CC BY-SA 3.0), Doe Library (CC BY-SA 4.0) and Dwinelle (public domain). Credits are in each `engine/paintings/*/painting.json`.
