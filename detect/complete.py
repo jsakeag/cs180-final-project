@@ -273,7 +273,46 @@ def apply_room(scene, room):
     sch["room"] = room
 
 
+# ------------------------------------------------------------------ facing of what was seen
+
+def orient_observed(scene, polys, cams):
+    """place.py fixes each object's axis but can't tell front from back. With the room
+    known: against a wall -> faces away from it (a bed: its foot end); a seat near its
+    table / a sofa near its coffee table -> faces it; else keeps facing the camera."""
+    cam_xz = [c.C[[0, 2]] for c in cams]
+    boxes, objs = [], []
+    for o in scene["objects"]:
+        if o.get("source", {}).get("placed_by") == "predicted" or o["position"][1] > 0.3:
+            continue
+        f = anchor_front(o, polys, cam_xz)
+        boxes.append({"cls": o["class"], "c": np.array(o["position"][::2], float), "front": f,
+                      "w": o["size"][0], "d": o["size"][2], "facing_from": "wall/camera"})
+        objs.append(o)
+    face_toward(boxes)
+    for o, b in zip(objs, boxes):
+        ux, uz = obj_axes(o)
+        f = b["front"]
+        w, d = o["size"][0], o["size"][2]
+        if abs(f @ ux) > 0.5 and max(w, d) > 1.3 * min(w, d):
+            # the photo fit chose this axis; context may only pick front vs back
+            cam = cam_xz[0] if cam_xz else b["c"]
+            f = uz if uz @ (cam - b["c"]) >= 0 else -uz
+            for n in (uz, -uz):          # ...unless a wall is right behind one of them
+                if not inside_any(b["c"] + n * (d / 2 + 0.35), polys):
+                    f = -n
+        if abs(f @ ux) > 0.5:            # front along the old width axis: turn 90, swap w/d
+            o["size"][0], o["size"][2] = o["size"][2], o["size"][0]
+        new = round(yaw_from_front(f), 1)
+        if abs((new - o["rotation_y"] + 180) % 360 - 180) > 1:
+            o.setdefault("source", {})["facing"] = b["facing_from"]
+        o["rotation_y"] = new
+
+
 # ------------------------------------------------------------------ prediction
+
+def inside_any(p, polys):
+    return any(point_in_poly(p, q) for q in polys)
+
 
 def anchor_front(o, room_rect, cam_xz):
     """Facing used for relations, defined the same way room_prior.py learned it: away from
@@ -288,7 +327,8 @@ def anchor_front(o, room_rect, cam_xz):
         short_side = (abs(n @ ux) > 0.5) == long_x       # normal along the long axis
         if o["class"] in FRONT_ON_SHORT_SIDE and not short_side:
             continue
-        if not point_in_poly(c + n * (half + 0.35), room_rect) and (best is None or length > best[1]):
+        polys = room_rect if isinstance(room_rect, list) and np.ndim(room_rect[0]) == 2 else [room_rect]
+        if not inside_any(c + n * (half + 0.35), polys) and (best is None or length > best[1]):
             best = (-n, length)
     if best:
         return best[0]
@@ -559,6 +599,8 @@ def complete(scene_path, viz=None, do_predict=True):
               f"{[k for k, v in room.get('observed_sides', {}).items() if v] or 'none'}"
               + "".join(f", + {e['size'][0]} x {e['size'][1]} m space past the {e['side']} wall"
                         for e in room.get("extensions", [])))
+    if room.get("corners"):
+        orient_observed(scene, [room["corners"]] + [e["corners"] for e in room.get("extensions", [])], cams)
     info = {}
     if do_predict and PRIOR.exists() and room.get("corners"):
         preds, info = predict(scene, room, cams, json.loads(PRIOR.read_text()))

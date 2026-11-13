@@ -20,7 +20,12 @@ Two ways to place a floor-standing detection:
          covered by a nearer object, or when the two methods disagree badly.
 Width comes from the box's bottom edge on the plan (floor) or box width x depth / f
 (depth); height from depth if available. Both are clamped around the class prior.
-Facing = box bottom edge direction on the plan, snapped to the walls.
+Orientation: furniture runs along the room's walls, so the room's wall direction gives
+two candidate axes (plus "square to the camera" for odd ones). For each, the 3D box is
+projected into the photo and scaled to the detection's width; the candidate whose
+projection best matches the 2D box wins (IoU, minus a penalty for straying from the
+class size). Front vs back can't be told from a box; it faces the camera here and
+complete.py corrects it with room context (walls, tables).
 """
 import argparse, json, math, pathlib, sys
 
@@ -33,6 +38,8 @@ from camera import (K_matrix, estimate_focal, pose_from_floor_h, pixel_to_world,
 from priors import SIZE_PRIORS, FLOOR_CLASSES, CLAMP  # noqa: E402
 
 SNAP_DEG = 20.0
+FREE_PENALTY = 0.3   # "square to the camera" vs wall-aligned; never won on SUN at >= 0.3
+SIZE_W = 0.5         # cost of scaling away from the class size (swept: 0.5 best for axis)
 ROUND_ITEMS = ("chair", "stool", "plant", "lamp", "basket")  # depth doesn't scale with width
 
 
@@ -60,6 +67,82 @@ def snap_yaw(yaw, walls):
             if d < best_d:
                 best, best_d = cand, d
     return ((best + 180) % 360) - 180
+
+
+def room_axis(schematic, cam_plan):
+    """Plan angle (rad, mod 90 deg) of the room's walls, length weighted. Edges of a view
+    polygon that run through the camera are view-cone edges, not walls."""
+    z = 0j
+    given = (schematic.get("room") or {}).get("given")
+    for w in schematic.get("walls", []):
+        a, b = np.array(w["from"], float), np.array(w["to"], float)
+        e = b - a
+        L = np.linalg.norm(e)
+        if L < 0.8:
+            continue
+        if not given and abs(e[0] * (cam_plan[1] - a[1]) - e[1] * (cam_plan[0] - a[0])) / L < 0.4:
+            continue
+        z += L * np.exp(4j * math.atan2(e[1], e[0]))
+    return float(np.angle(z) / 4) if abs(z) > 0 else 0.0
+
+
+def project_box(view, c, ux, uz, w, h, d, elev):
+    """2D bbox (clipped to the image) of a 3D box on the floor plan, or None."""
+    P = [c + sx * ux * w / 2 + sz * uz * d / 2 for sx in (-1, 1) for sz in (-1, 1)]
+    P3 = np.array([[p[0], p[1], y * view.pose["up_sign"]] for p in P for y in (elev, elev + h)])
+    Xc = (view.pose["R"] @ P3.T).T + view.pose["t"]
+    if (Xc[:, 2] < 0.05).any():
+        return None
+    uv = (view.K @ Xc.T).T
+    uv = uv[:, :2] / uv[:, 2:3]
+    x1, y1 = np.clip(uv.min(0), 0, [view.w, view.h])
+    x2, y2 = np.clip(uv.max(0), 0, [view.w, view.h])
+    return np.array([x1, y1, x2, y2])
+
+
+def iou(a, b):
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    return inter / ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter + 1e-9)
+
+
+def fit_orientation(view, box, cls, front, away, elev, height, phi, trust_bottom):
+    """Choose the box axis (see module doc). Returns center, [w, d], three.js yaw, info."""
+    pw, _, pd = SIZE_PRIORS[cls]
+    box = np.array(box, float)
+    bw = box[2] - box[0]
+    away_ang = math.atan2(away[1], away[0])
+    cands = [(phi, 0.0, "wall"), (phi + math.pi / 2, 0.0, "wall"), (away_ang + math.pi / 2, FREE_PENALTY, "camera")]
+    best = None
+    for ang, pen, kind in cands:
+        ux = np.array([math.cos(ang), math.sin(ang)])
+        uz = np.array([-math.sin(ang), math.cos(ang)])
+        s, bb, c = 1.0, None, front
+        for _ in range(4):           # scale until the projection is as wide as the detection
+            w, d = pw * s, pd * s
+            ext = abs(w * (ux @ away)) + abs(d * (uz @ away))   # depth of the box along the view ray
+            c = front + away * ext / 2
+            bb = project_box(view, c, ux, uz, w, height, d, elev)
+            if bb is None or bb[2] - bb[0] < 1:
+                bb = None
+                break
+            s = float(np.clip(s * bw / (bb[2] - bb[0]), *CLAMP))
+        if bb is None:
+            continue
+        cmp = bb.copy()
+        if not trust_bottom:          # bottom hidden or cut off: only top / sides count
+            cmp[3] = min(cmp[3], box[3])
+        score = iou(cmp, box) - SIZE_W * abs(math.log(s)) - pen
+        if best is None or score > best[0]:
+            best = (score, ang, c, uz, [pw * s, pd * s], kind)
+    if best is None:
+        return None
+    score, ang, c, uz, (w, d), kind = best
+    yaw = math.degrees(-ang)
+    if uz @ (view.cam_plan - c) < 0:  # front toward the camera until complete.py knows better
+        yaw += 180
+    return c, (w, d), ((yaw + 180) % 360) - 180, {"axis_from": kind, "fit": round(score, 3)}
 
 
 def unit(v):
@@ -216,6 +299,15 @@ def place_detection(d, view, walls, floor_dets):
     front = est["front"] if use_depth else est["base"]
     center = front + est["away"] * depth / 2
     yaw = snap_yaw(math.degrees(math.atan2(-est["axis"][1], est["axis"][0])), walls)
+    if cls not in ROUND_ITEMS:
+        fit = fit_orientation(view, d["box"], cls, front, est["away"], elev, height, view.room_phi,
+                              trust_bottom=not (clipped or occ))
+        if fit:
+            # keep the center from the measured front point: moving it with the fitted box
+            # was worse on SUN RGB-D (floor-contact error 0.22 -> 0.26 m)
+            _, (width, depth), yaw, info = fit
+            center = front + est["away"] * depth / 2
+            reasons.append(f"axis from {info['axis_from']} (fit {info['fit']})")
 
     return {
         "class": cls,
@@ -356,6 +448,7 @@ def main():
             continue
         view = View(reg, dets_by_img[key])
         view.wall_height = scene["schematic"].get("wall_height", 2.7)
+        view.room_phi = room_axis(scene["schematic"], view.cam_plan)
         views.append(view)
         floor_dets = [d for d in view.entry["detections"]
                       if d["class"] in FLOOR_CLASSES and d["conf"] >= args.min_conf]

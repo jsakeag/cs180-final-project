@@ -60,16 +60,31 @@ Debug output (`--viz`, in `detect/out/`): `*_det.jpg` (boxes + depth), `*_placed
 .venv/bin/python detect/evaluate.py batch          # -> detect/out/eval/report.json
 ```
 
-Baseline, 60 bedroom/living-room frames (perfect registration, 169 floor-standing GT objects):
+Results on 60 bedroom/living-room frames (perfect registration, 169 floor-standing GT objects):
 
 | | |
 |---|---|
 | recall / precision | 0.65 / 0.53 |
 | median center error | 0.41 m |
-| ... placed by visible floor contact (26) | **0.22 m** |
-| ... placed by depth (84) | 0.46 m |
+| ... placed by visible floor contact (25) | **0.22 m** |
+| ... placed by depth (84) | 0.45 m |
 | size error (mean \|log ratio\|) | 0.26 (~30%) |
-| median facing error | 21° |
+| long-axis error, elongated objects (59) | **3.7° median, 66% within 15°** (was 35.8°, 14%) |
+
+### Orientation
+
+A 2D box says nothing direct about which way a sofa runs. The old rule set its facing perpendicular to the camera ray, so everything faced the camera; the median axis error was 35.8°, about chance. Now (`place.py: fit_orientation`):
+
+1. The room's wall direction is taken from the observed walls, ignoring view-cone edges (lines through the camera). Furniture runs along walls, which gives two candidate axes, plus "square to the camera" at a penalty.
+2. For each candidate, the class-size 3D box is projected into the photo and scaled to the detection's width. Score = IoU with the 2D box − 0.5·|log scale| − penalty, and the best candidate wins. When the base is hidden or cut off, the box bottom is ignored.
+3. Front versus back is symmetric for a box, so `complete.py` decides it once the room is known:
+   - against a wall: face away from it (a bed faces with its foot end)
+   - seat near its table, or sofa near its coffee table: face it
+   - otherwise: face the camera
+
+   Long items only flip front-to-back; context never overrides the photo's axis.
+
+SUN ground truth has no facing direction, so the table measures the axis only. The weights were swept on these frames: the size weight (0.5 best for axis) and the camera-facing penalty (≥ 0.3 means it never wins). Moving the center along with the fitted box hurt floor-contact accuracy (0.22 → 0.26 m), so the center still comes from the measured front point.
 
 Coordinate notes (learned the hard way): SUN annotation frame is gravity-aligned, X right, **Y down**, Z forward; `Ymin`/`Ymax` are not consistently bottom/top (bottom = max); the layout's floor height can be ~10 cm off, so the floor is taken from furniture bottoms when lower.
 

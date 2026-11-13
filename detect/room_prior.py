@@ -168,6 +168,8 @@ def face_toward(boxes):
             continue
         f = b["front"]
         axes = [f, -f, np.array([f[1], -f[0]]), np.array([-f[1], f[0]])]
+        if max(b["w"], b["d"]) > 1.3 * min(b["w"], b["d"]):
+            axes = axes[:2]           # long things (sofa) only flip; a side table mustn't turn them
         b["front"] = max(axes, key=lambda x: np.dot(x, d))
         b["facing_from"] = "faces " + a["cls"]
 

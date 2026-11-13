@@ -31,6 +31,23 @@ def group_of(cls):
     return next((g for g in MATCH_GROUPS if cls in g), (cls,))
 
 
+def long_axis(o):
+    """Plan angle (deg, mod 180) of an object's long side; three.js yaw t puts local x
+    (the width) along plan angle -t."""
+    w, _, d = o["size"]
+    return (-o["rotation_y"] + (0 if w >= d else 90)) % 180
+
+
+def axis_err(p, g, min_aspect=1.3):
+    """Which way the long side runs, 0-90 deg. Only for clearly elongated GT objects
+    (sofa, bed, table): for squarish ones the long side is arbitrary."""
+    w, _, d = g["size"]
+    if max(w, d) / max(min(w, d), 1e-3) < min_aspect:
+        return None
+    e = abs(long_axis(p) - long_axis(g)) % 180
+    return round(min(e, 180 - e), 1)
+
+
 def score(pred, gt):
     gt = [g for g in gt if g["class"] in FLOOR_CLASSES]
     pred = [p for p in pred if p["class"] in FLOOR_CLASSES
@@ -56,6 +73,7 @@ def score(pred, gt):
         dyaw = min(dyaw, 90 - dyaw)  # width/depth may be swapped between pred and gt: 90 deg ~ 0
         matches.append({"pred": p.get("id", p["class"]), "gt": g["sun_label"], "class": g["class"],
                         "center_err": round(d, 3), "size_err": round(size_err, 3), "yaw_err": round(dyaw, 1),
+                        "axis_err": axis_err(p, g),
                         "placed_by": p.get("source", {}).get("placed_by")})
     return {"n_pred": len(pred), "n_gt": len(gt), "n_match": len(matches), "matches": matches,
             "missed": [g["sun_label"] for j, g in enumerate(gt) if j not in used_g],
@@ -74,6 +92,10 @@ def summarize(results):
                 "center_err_mean_m": round(float(ce.mean()), 3),
                 "size_err_mean_log": round(float(np.mean([m["size_err"] for m in allm])), 3),
                 "yaw_err_median_deg": round(float(np.median([m["yaw_err"] for m in allm])), 1)}
+        ax = [m["axis_err"] for m in allm if m.get("axis_err") is not None]
+        if ax:
+            out |= {"axis_err_median_deg": round(float(np.median(ax)), 1),
+                    "axis_within_15deg": round(float(np.mean(np.array(ax) <= 15)), 3), "n_axis": len(ax)}
         for how in ("floor", "depth"):
             sub = [m["center_err"] for m in allm if m["placed_by"] == how]
             if sub:
