@@ -221,4 +221,15 @@ The scene reloads in place when done. The Esc menu also has **Exit to Scene Buil
 
 The engine loads a building's furniture only when you come within 70 m, hides it when you're farther away, parses each model once and clones it, and skips furniture shadows indoors. Painting a building in the game or in the builder furnishes it automatically.
 
+**Painting inside** (same B tool; the panel knows when you're inside a building):
+- **Interior walls:** a painting with `side: in` covers the ground storey on the wall's inside face, with the same rectification and fitted parts. It doesn't make doorways or roofs. The game sends the aimed building's index, and a map point inside a building always means that building, which matters where neighbors share walls.
+- **Furnish this room from a photo** (`photo_furnish.py`, no clicks):
+  1. `detect.py --depth` finds the furniture and estimates depth.
+  2. RANSAC fits the floor plane to back-projected depth points in the lower part of the image, outside furniture boxes. Its normal gives the camera's tilt, and its distance the camera height.
+  3. Each object's floor contact is its box's bottom-center ray intersected with that plane; if the bottom is out of frame, the box-center depth dropped to the floor is used instead.
+  4. The photo is assumed taken from where you stand, facing where you look. Objects landing outside the building are dropped, and the photo's furniture replaces generated furniture in the same spots.
+  5. Models are matched from the photo crops.
+
+  On the 60 SUN RGB-D test photos (calibrated focal), no-click placement lands objects a median **0.52 m** from ground truth, against 0.41 m with registered floor points.
+
 Demo paintings use Wikimedia Commons photos of Wheeler (CC BY-SA 3.0), Doe Library (CC BY-SA 4.0) and Dwinelle (public domain). Credits are in each `engine/paintings/*/painting.json`.

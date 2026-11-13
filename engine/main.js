@@ -271,7 +271,7 @@ function buildOutdoor(sch) {
 // ---------- Paint Berkeley: facades from photos + rules that reshape buildings ----------
 const STONE = new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.85 });
 const TERRACOTTA = new THREE.MeshStandardMaterial({ color: 0xb4532f, roughness: 0.8, side: THREE.DoubleSide });
-function wallFrame(block, edge, span, edgeEnd = edge) {
+function wallFrame(block, edge, span, edgeEnd = edge, inward = false) {
   // right-handed frame on a building wall: x along the wall (viewer's right when facing
   // it from outside), y up, z out of the wall. Origin = the wall's left end at the ground.
   const P = block.polygon;
@@ -280,7 +280,7 @@ function wallFrame(block, edge, span, edgeEnd = edge) {
   const a = new THREE.Vector3(P[edge][0], 0, P[edge][1]);
   const b = new THREE.Vector3(P[(edgeEnd + 1) % P.length][0], 0, P[(edgeEnd + 1) % P.length][1]);   // a run of edges = one wall
   const t = b.clone().sub(a).normalize();
-  const n = new THREE.Vector3(t.z, 0, -t.x).multiplyScalar(area > 0 ? 1 : -1);   // outward
+  const n = new THREE.Vector3(t.z, 0, -t.x).multiplyScalar((area > 0 ? 1 : -1) * (inward ? -1 : 1));   // outward (or in)
   const up = new THREE.Vector3(0, 1, 0);
   const x = up.clone().cross(n);                                                   // viewer's right
   const [s0, s1] = span;
@@ -422,7 +422,7 @@ function buildParts(frame, p, L, H, reps, sx, sy, tex, block) {
   const isDoor = (x0, x1, y0) => y0 < 1.0 && doorways.some(([a, b]) => x0 < b && x1 > a);
   const usedDoor = new Set();
   // the facade sits SKIN out from the building so openings can recess into it
-  const SKIN = Math.max(0.3, ...parts.openings.map((o) => o.depth)) + 0.1;
+  const SKIN = Math.max(block?.__inside ? 0.25 : 0.3, ...parts.openings.map((o) => o.depth)) + 0.1;
   // texture in wall meters: u wraps every facade repeat, v spans the height
   tex.repeat.set(1 / (Ws * sx), 1 / H);
   tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -532,8 +532,9 @@ async function buildPaintings(def) {
     if (!p || sceneDef !== def) continue;
     const block = blocks[app.block];
     if (!block) continue;
-    const frame = wallFrame(block, app.edge, app.span, app.edge_end ?? app.edge);
-    const L = app.span[1] - app.span[0], H = block.height;
+    const inside = app.side === 'in';
+    const frame = wallFrame(block, app.edge, app.span, app.edge_end ?? app.edge, inside);
+    const L = app.span[1] - app.span[0], H = inside ? Math.min(STOREY, block.height) : block.height;
     const [Ws, Hs] = p.size_m;
     const reps = Math.max(1, Math.round(L / Ws)), sx = L / (reps * Ws), sy = H / Hs;
     // the facade itself, repeated to the wall's length, stretched to its height; with its
@@ -548,7 +549,7 @@ async function buildPaintings(def) {
       let face;
       const parts = p.parts && (p.parts.openings.length || p.parts.columns.length || p.parts.ledges.length);
       if (settings.relief && parts) {
-        buildParts(frame, p, L, H, reps, sx, sy, tex, block);
+        buildParts(frame, p, L, H, reps, sx, sy, tex, inside ? { ...block, __inside: true } : block);
       } else if (block.doors?.length && doorRangesOnFrame(frame, block, L).length) {
         // flat painting, but this wall has a doorway: a plain skin with the door cut out
         buildParts(frame, { ...p, parts: { openings: [], columns: [], ledges: [], wall_color: p.parts?.wall_color ?? '#cfc8bb' } },
@@ -592,7 +593,7 @@ async function buildPaintings(def) {
         for (let i = 0; i < reps; i++) for (const [x0, y0, x1, y1] of r.arches) {
           frame.add(archSurround((x0 + i * Ws) * sx, y0 * sy, (x1 + i * Ws) * sx, y1 * sy, 0.4));
         }
-      } else if (r.type === 'roof' && !roofed.has(app.block)) {
+      } else if (r.type === 'roof' && !inside && !roofed.has(app.block)) {
         roofed.add(app.block);
         worldGroup.add(hipRoof(block));
       }
@@ -651,17 +652,34 @@ function updatePaintHover() {
   if (key !== (hoverWall ? `${hoverWall.bi}:${hoverWall.first}` : null)) {
     if (hoverMesh) { worldGroup.remove(hoverMesh); hoverMesh = null; }
     if (wall) {
-      hoverMesh = wallFrame(wall.block, wall.first, [0, wall.L], wall.last);
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(wall.L, wall.block.height), HILITE);
-      plane.position.set(wall.L / 2, wall.block.height / 2, 0.15);
+      const inside = insideBlock(player.x, player.z) === wall.bi;
+      const hh = inside ? Math.min(STOREY, wall.block.height) : wall.block.height;
+      hoverMesh = wallFrame(wall.block, wall.first, [0, wall.L], wall.last, inside);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(wall.L, hh), HILITE);
+      plane.position.set(wall.L / 2, hh / 2, inside ? 0.3 : 0.15);
       plane.renderOrder = 10;
       hoverMesh.add(plane);
       hoverMesh.updateMatrixWorld(true);
       worldGroup.add(hoverMesh);
     }
   }
+  if (wall) wall.side = insideBlock(player.x, player.z) === wall.bi ? 'in' : 'out';
   hoverWall = wall;
   if (wall) hoverWall.near = wall.near;   // keep the latest aim point
+}
+function insideBlock(x, z) {
+  // index of the enterable building the point is in, or -1
+  const blocks = sceneDef?.schematic?.blocks ?? [];
+  for (let i = 0; i < blocks.length; i++) {
+    const P = blocks[i].polygon;
+    if (!blocks[i].doors?.length) continue;
+    let c = false;
+    for (let k = 0, j = P.length - 1; k < P.length; j = k++) {
+      if ((P[k][1] > z) !== (P[j][1] > z) && x < (P[j][0] - P[k][0]) * (z - P[k][1]) / (P[j][1] - P[k][1]) + P[k][0]) c = !c;
+    }
+    if (c) return i;
+  }
+  return -1;
 }
 function setPaintMode(on) {
   paintMode = on && !!sceneDef?.outdoor;
@@ -681,7 +699,10 @@ async function openPaintPanel(wall) {
   document.exitPointerLock();
   overlay.classList.add('hidden');
   panel.classList.remove('hidden');
-  document.getElementById('pp-title').textContent = `Paint ${wall.block.name ?? 'this building'} · ${wall.L.toFixed(0)} m wall`;
+  document.getElementById('pp-title').textContent = `Paint ${wall.block.name ?? 'this building'} · ${wall.L.toFixed(0)} m wall${wall.side === 'in' ? ' (inside)' : ''}`;
+  const inB = insideBlock(player.x, player.z);
+  pp.furnishAt = { block: inB, at: [player.x, player.z], yaw: player.yaw };
+  document.getElementById('pp-furnish').classList.toggle('hidden', inB < 0);
   document.getElementById('pp-status').textContent = '';
   const api = (p, o) => fetch(p, o).then(async (r) => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
   try {
@@ -713,7 +734,7 @@ async function applyPainting(id) {
   const st = document.getElementById('pp-status');
   st.textContent = `applying ${id}…`;
   const r = await fetch('/api/paint/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ painting: id, near: paintTarget.near }) });
+    body: JSON.stringify({ painting: id, near: paintTarget.near, side: paintTarget.side, block: paintTarget.bi }) });
   if (!r.ok) { st.textContent = (await r.text()).slice(0, 200); return; }
   await reloadScene();
   closePaintPanel();
@@ -769,7 +790,7 @@ document.getElementById('pp-run').onclick = async () => {
   st.textContent = 'reading the facade (first run loads the models, ~30 s)…';
   document.getElementById('pp-run').disabled = true;
   const { job } = await fetch('/api/paint', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ job: pp.job, name: pp.photo.name, corners: pp.corners, near: paintTarget.near,
+    body: JSON.stringify({ job: pp.job, name: pp.photo.name, corners: pp.corners, near: paintTarget.near, side: paintTarget.side, block: paintTarget.bi,
                            label: document.getElementById('pp-label').value }) }).then((r) => r.json());
   clearInterval(pp.polling);
   pp.polling = setInterval(async () => {
@@ -879,6 +900,28 @@ function updateInteriors(dt) {
     it.group.visible = near;
   }
 }
+
+// furnish from a photo: the room in the photo appears around where you stand
+document.getElementById('pf-file').onchange = async (e) => {
+  const st = document.getElementById('pf-status');
+  const fd = new FormData();
+  fd.append('images', e.target.files[0]);
+  st.textContent = 'uploading…';
+  const up = await fetch('/api/upload', { method: 'POST', body: fd }).then((x) => x.json());
+  st.textContent = 'finding the floor and the furniture (first run loads the models)…';
+  const { job } = await fetch('/api/furnish', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job: up.job, name: up.images[0].name, ...pp.furnishAt }) }).then((r) => r.json());
+  const poll = setInterval(async () => {
+    const j = await fetch(`/api/job/${job}`).then((r) => r.json());
+    const last = j.log.filter((l) => /floor plane|pieces placed/.test(l)).join(' · ');
+    st.textContent = `${j.stage} · ${j.elapsed}s ${last ? '· ' + last : ''}`;
+    if (!j.done) return;
+    clearInterval(poll);
+    if (j.error) { st.textContent = j.error; return; }
+    await reloadScene();
+    closePaintPanel();
+  }, 1500);
+};
 
 // simple stand-ins for street furniture without a model
 const PROCEDURAL = {

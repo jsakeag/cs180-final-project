@@ -251,7 +251,10 @@ def paint():
     cmd = [PY, "detect/paint.py", "add", "--scene", str(ENGINE / CAMPUS), "--photo", str(photo),
            "--corners", " ".join(f"{x:.1f},{y:.1f}" for x, y in body["corners"]),
            "--near", str(body["near"][0]), str(body["near"][1]),
-           "--credit", (work / "credit.txt").read_text() if (work / "credit.txt").exists() else "uploaded"]
+           "--credit", (work / "credit.txt").read_text() if (work / "credit.txt").exists() else "uploaded",
+           "--side", "in" if body.get("side") == "in" else "out"]
+    if body.get("block") is not None:          # the game knows which building was aimed at
+        cmd += ["--building", str(int(body["block"]))]
     if label:
         cmd += ["--name", label]
     return _start(f"paint_{uuid.uuid4().hex[:6]}", [("painting the facade", cmd)] + FURNISH_STEPS, CAMPUS, work)
@@ -263,12 +266,35 @@ def paint_apply():
     body = request.get_json()
     pid = "".join(ch for ch in body["painting"] if ch.isalnum() or ch in "_-")
     r = subprocess.run([PY, "detect/paint.py", "apply", "--scene", str(ENGINE / CAMPUS), "--painting", pid,
-                        "--near", str(body["near"][0]), str(body["near"][1])], cwd=REPO, capture_output=True, text=True)
+                        "--near", str(body["near"][0]), str(body["near"][1]),
+                        "--side", "in" if body.get("side") == "in" else "out"]
+                       + (["--building", str(int(body["block"]))] if body.get("block") is not None else []),
+                       cwd=REPO, capture_output=True, text=True)
     if r.returncode:
         abort(400, (r.stdout + r.stderr)[-400:])
     for _, cmd in FURNISH_STEPS:      # a newly enterable building gets its interior now
         subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     return jsonify({"message": r.stdout.strip()})
+
+
+@app.post("/api/furnish")
+def furnish_from_photo():
+    """Furnish a building's interior from a photo of a real room, placed around where the
+    player stands. body: {job, name (uploaded photo), block, at [x, z], yaw (rad)}"""
+    body = request.get_json()
+    work = JOBS / body["job"]
+    photo = work / "images" / body["name"]
+    if not photo.exists():
+        abort(400, "upload a photo first")
+    dets = work / "detections.json"
+    steps = [
+        ("detecting furniture + depth", [PY, "detect/detect.py", str(photo), "-o", str(dets), "--depth", "--viz"]),
+        ("fitting the floor and placing", [PY, "detect/photo_furnish.py", "--detections", str(dets), "--scene", str(ENGINE / CAMPUS),
+                                          "--block", str(int(body["block"])), "--at", str(body["at"][0]), str(body["at"][1]),
+                                          "--yaw", str(body["yaw"])]),
+        ("matching models", [PY, "detect/models_catalog.py", "match", str(ENGINE / CAMPUS), "--missing"]),
+    ]
+    return _start(f"furnish_{uuid.uuid4().hex[:6]}", steps, CAMPUS, work)
 
 
 @app.get("/api/job/<job_id>")

@@ -107,6 +107,10 @@ def find_block(scene, name, near=None):
         if near is None:
             raise SystemExit("--building auto needs --near")
         q = np.asarray(near, float)
+        from room_prior import in_poly
+        inside = [i for i, b in enumerate(blocks) if in_poly(q, np.asarray(b["polygon"], float))[0]]
+        if inside:                           # a click inside a building means that building
+            return inside[0], blocks[inside[0]]
 
         def d(b):
             P = np.asarray(b["polygon"], float)
@@ -515,7 +519,7 @@ def add(args):
         raise SystemExit("--corners needs 4 points: TL TR BR BL as x,y")
     # the facade's real proportions come from the photo, its height from the map; the
     # painting then repeats along the wall (a photo often shows only part of a facade)
-    H_m = float(block["height"])
+    H_m = float(block["height"]) if args.side == "out" else min(STOREY, float(block["height"]))
     aspect, f_est, f_ok = rect_aspect(src, img.shape[1], img.shape[0])
     W_m = float(np.clip(H_m * aspect, 2.0, max(2.0, s1 - s0)))
     print(f"facade aspect {aspect:.2f} (focal {'%.0f px from the quad' % f_est if f_ok else 'assumed'}) "
@@ -590,13 +594,14 @@ def add(args):
                 "elements": dets, "analysis": info,
                 "source": {"photo": pathlib.Path(args.photo).name, "corners": src.tolist(), "credit": args.credit}}
     (out / "painting.json").write_text(json.dumps(painting, indent=2))
-    apply_to(scene, name, bi, k0, [s0, s1], k1)
+    apply_to(scene, name, bi, k0, [s0, s1], k1, args.side)
     update_doors(scene)
     scene_path.write_text(json.dumps(scene))
     print(f"  -> {out / 'painting.json'}; painted {block['name']} wall {k0}-{k1}")
 
 
 DOOR_MIN_H, DOOR_MAX_SILL, DEFAULT_DOOR = 1.8, 0.8, (2.0, 2.8)   # m
+STOREY = 4.5   # interior paintings cover the ground storey (the engine's STOREY)
 
 
 def wall_frame_2d(block, k0, k1, span):
@@ -619,6 +624,8 @@ def update_doors(scene):
     for b in blocks:
         b.pop("doors", None)
     for app in scene.get("paintings", []):
+        if app.get("side") == "in":
+            continue                             # interior paintings don't make doorways
         pj = PAINTINGS / app["painting"] / "painting.json"
         if not pj.exists():
             continue
@@ -647,10 +654,11 @@ def update_doors(scene):
     return sum(len(b.get("doors", [])) for b in blocks)
 
 
-def apply_to(scene, painting, bi, k, span, k_end=None):
-    ps = [p for p in scene.get("paintings", []) if not (p["block"] == bi and p["edge"] == k)]
+def apply_to(scene, painting, bi, k, span, k_end=None, side="out"):
+    ps = [p for p in scene.get("paintings", [])
+          if not (p["block"] == bi and p["edge"] == k and p.get("side", "out") == side)]
     ps.append({"painting": painting, "block": bi, "edge": k, "edge_end": k if k_end is None else k_end,
-               "span": [round(span[0], 2), round(span[1], 2)]})
+               "span": [round(span[0], 2), round(span[1], 2)], "side": side})
     scene["paintings"] = ps
     if not any("paintings" in c for c in scene.get("credits", [])):
         scene.setdefault("credits", []).append("Facade paintings: see engine/paintings/*/painting.json for photo credits")
@@ -663,7 +671,7 @@ def apply(args):
         raise SystemExit(f"no painting {args.painting}")
     bi, block = find_block(scene, args.building, args.near)
     k0, k1, L = wall_run(block, pick_edge(block, args.facing, args.edge, args.near))
-    apply_to(scene, args.painting, bi, k0, args.span or [0.0, L], k1)
+    apply_to(scene, args.painting, bi, k0, args.span or [0.0, L], k1, args.side)
     update_doors(scene)
     scene_path.write_text(json.dumps(scene))
     print(f"painted {block['name']} wall {k0}-{k1} ({L:.1f} m) with {args.painting}")
@@ -686,6 +694,7 @@ def main():
         p.add_argument("--edge", type=int)
         p.add_argument("--near", type=float, nargs=2, metavar=("X", "Z"), help="map click near the wall")
         p.add_argument("--span", type=float, nargs=2, metavar=("S0", "S1"), help="part of the wall (m)")
+        p.add_argument("--side", choices=["out", "in"], default="out", help="facade, or the wall's inside (ground storey)")
         if name == "add":
             p.add_argument("--photo", required=True)
             p.add_argument("--corners", required=True, help='"x,y x,y x,y x,y" = TL TR BR BL in the photo')
