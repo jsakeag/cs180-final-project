@@ -29,7 +29,7 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1d2228);
 
-const camera = new THREE.PerspectiveCamera(CFG.fovDefault, innerWidth / innerHeight, 0.05, 200);
+const camera = new THREE.PerspectiveCamera(CFG.fovDefault, innerWidth / innerHeight, 0.05, 1500);
 camera.rotation.order = 'YXZ';
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.8));
@@ -201,6 +201,84 @@ function renderProjectionDepth() {
   if (grid) grid.visible = gridWas;
 }
 
+// ---------- outdoor (campus) ----------
+const OUT_MAT = {
+  building: new THREE.MeshStandardMaterial({ color: 0xd9d2c3 }),
+  roof: new THREE.MeshStandardMaterial({ color: 0x8c6f5a }),
+  grass: new THREE.MeshStandardMaterial({ color: 0x6f9a52, side: THREE.DoubleSide }),
+  plaza: new THREE.MeshStandardMaterial({ color: 0xc9c2b5, side: THREE.DoubleSide }),
+  path: new THREE.MeshStandardMaterial({ color: 0xe8e1d2, side: THREE.DoubleSide }),
+  steps: new THREE.MeshStandardMaterial({ color: 0xb3ab9c, side: THREE.DoubleSide }),
+};
+const flatShape = (poly) => new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x, -z)));
+function flatMesh(geom, mat, y) {
+  const m = new THREE.Mesh(geom, mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = y;
+  m.receiveShadow = true;
+  return m;
+}
+function stripGeometry(lines) {
+  // each polyline segment -> a quad of the path's width, all in one geometry
+  const pos = [];
+  for (const { line, width } of lines) {
+    for (let i = 0; i + 1 < line.length; i++) {
+      const [x0, z0] = line[i], [x1, z1] = line[i + 1];
+      const L = Math.hypot(x1 - x0, z1 - z0) || 1;
+      const nx = -(z1 - z0) / L * width / 2, nz = (x1 - x0) / L * width / 2;
+      const a = [x0 + nx, -(z0 + nz)], b = [x0 - nx, -(z0 - nz)], c = [x1 - nx, -(z1 - nz)], d = [x1 + nx, -(z1 + nz)];
+      pos.push(...a, 0, ...b, 0, ...c, 0, ...a, 0, ...c, 0, ...d, 0);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+function buildOutdoor(sch) {
+  const surf = sch.surfaces ?? {};
+  for (const poly of surf.grass ?? []) worldGroup.add(flatMesh(new THREE.ShapeGeometry(flatShape(poly)), OUT_MAT.grass, 0.02));
+  for (const poly of surf.plaza ?? []) worldGroup.add(flatMesh(new THREE.ShapeGeometry(flatShape(poly)), OUT_MAT.plaza, 0.015));
+  if (surf.path?.length) worldGroup.add(flatMesh(stripGeometry(surf.path), OUT_MAT.path, 0.03));
+  if (surf.steps?.length) worldGroup.add(flatMesh(stripGeometry(surf.steps), OUT_MAT.steps, 0.035));
+  for (const b of sch.blocks ?? []) {
+    const g = new THREE.ExtrudeGeometry(flatShape(b.polygon), { depth: b.height, bevelEnabled: false });
+    const m = new THREE.Mesh(g, [OUT_MAT.roof, OUT_MAT.building]);
+    m.rotation.x = -Math.PI / 2;
+    m.castShadow = m.receiveShadow = true;
+    worldGroup.add(m);
+    if (b.name) {
+      const cx = b.polygon.reduce((s, p) => s + p[0], 0) / b.polygon.length;
+      const cz = b.polygon.reduce((s, p) => s + p[1], 0) / b.polygon.length;
+      const label = makeLabel(b.name);
+      label.position.set(cx, b.height + 2, cz);
+      label.scale.multiplyScalar(4);
+      labelGroup.add(label);
+    }
+  }
+}
+// simple stand-ins for street furniture without a model
+const PROCEDURAL = {
+  tree(o) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 3, 8), new THREE.MeshStandardMaterial({ color: 0x6b4a32 }));
+    trunk.position.y = 1.5;
+    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 1), new THREE.MeshStandardMaterial({ color: 0x4f7a3a, flatShading: true }));
+    crown.position.y = 5;
+    for (const m of [trunk, crown]) { m.castShadow = m.receiveShadow = true; g.add(m); }
+    return g;
+  },
+  lamp_post(o) {
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, o.size[1], 8), new THREE.MeshStandardMaterial({ color: 0x2e3238 }));
+    pole.position.y = o.size[1] / 2;
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: 0x443a20 }));
+    lamp.position.y = o.size[1];
+    for (const m of [pole, lamp]) { m.castShadow = true; g.add(m); }
+    return g;
+  },
+};
+
 // Fit a loaded model uniformly into the object's bbox, bottom on the floor.
 function fitModel(root, size) {
   const box = new THREE.Box3().setFromObject(root);
@@ -250,6 +328,14 @@ function buildScene(def) {
     floorGeom.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     floorMat = new THREE.MeshBasicMaterial({ map: photoTexture(pt.floor.image) });   // unlit: the photo has its own light
   }
+  if (def.outdoor) {
+    floorMat = new THREE.MeshStandardMaterial({ color: 0x9a968c });
+    scene.background = new THREE.Color(0xa9c8e6);
+    scene.fog = new THREE.Fog(0xa9c8e6, 200, 1000);
+  } else {
+    scene.background = new THREE.Color(0x1d2228);
+    scene.fog = null;
+  }
   const floor = new THREE.Mesh(floorGeom, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(fmin[0] + fw / 2, 0, fmin[1] + fd / 2);
@@ -265,7 +351,8 @@ function buildScene(def) {
   sun.position.set(floor.position.x + 3, 10, floor.position.z + 4);
   sun.target.position.copy(floor.position);
   const ext = Math.max(fw, fd);
-  Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext });
+  const sx = def.outdoor ? 60 : ext;
+  Object.assign(sun.shadow.camera, { left: -sx, right: sx, top: sx, bottom: -sx, far: def.outdoor ? 300 : 500 });
   sun.shadow.camera.updateProjectionMatrix();
 
   colliders = buildColliders(def);
@@ -290,6 +377,8 @@ function buildScene(def) {
     worldGroup.add(m);
   }
 
+  if (def.outdoor) buildOutdoor(sch);
+
   // objects
   for (const o of def.objects ?? []) {
     const holder = new THREE.Group();
@@ -298,11 +387,11 @@ function buildScene(def) {
     holder.userData = o;
     objectGroup.add(holder);
 
-    const placeholder = new THREE.Mesh(
+    const placeholder = PROCEDURAL[o.class] && !o.model ? PROCEDURAL[o.class](o) : new THREE.Mesh(
       new THREE.BoxGeometry(...o.size),
       new THREE.MeshStandardMaterial({ color: colorFor(o.class) })
     );
-    placeholder.position.y = o.size[1] / 2;
+    if (placeholder.isMesh) placeholder.position.y = o.size[1] / 2;
     placeholder.castShadow = placeholder.receiveShadow = true;
     holder.add(placeholder);
 
@@ -567,6 +656,10 @@ const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.1);
   if (sceneDef) {
+    if (sceneDef.outdoor) {   // a 500 m shadow map is mush: keep a sharp 120 m one around the player
+      sun.position.set(player.x + 40, 90, player.z + 50);
+      sun.target.position.set(player.x, 0, player.z);
+    }
     updatePlayer(dt);
     updateCamera();
     updateHud(dt);

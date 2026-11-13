@@ -26,6 +26,7 @@ export function wallCollider(wall, id, height = 2.7) {
     hz: t / 2,
     angle: Math.atan2(dz, dx),
     top: height,
+    br: Math.hypot(len / 2 + t / 2, t / 2),
   };
 }
 
@@ -41,6 +42,7 @@ export function objectCollider(obj, id) {
     hz: d / 2,
     angle: -((obj.rotation_y ?? 0) * Math.PI) / 180,
     top: (obj.position[1] ?? 0) + obj.size[1],
+    br: Math.hypot(w / 2, d / 2),
   };
 }
 
@@ -48,6 +50,11 @@ export function buildColliders(sceneDef) {
   const out = [];
   const h = sceneDef.schematic?.wall_height ?? 2.7;
   (sceneDef.schematic?.walls ?? []).forEach((w, i) => out.push(wallCollider(w, `wall:${i}`, h)));
+  // outdoor buildings: every footprint edge is a wall as tall as the building
+  (sceneDef.schematic?.blocks ?? []).forEach((b, i) => {
+    const P = b.polygon;
+    P.forEach((p, k) => out.push(wallCollider({ from: p, to: P[(k + 1) % P.length], thickness: 0.4 }, `block:${i}:${k}`, b.height)));
+  });
   (sceneDef.objects ?? []).forEach((o) => {
     if (o.collide === false) return;
     out.push(objectCollider(o, `obj:${o.id}`));
@@ -67,6 +74,7 @@ export function groundHeight(px, pz, r, colliders, feetY) {
   let g = 0;
   for (const c of colliders) {
     if (c.top > feetY + STEP || c.top <= g) continue;
+    if (c.br !== undefined && (Math.abs(px - c.cx) > c.br + r || Math.abs(pz - c.cz) > c.br + r)) continue;
     const [lx, lz] = toLocal(c, px, pz);
     if (Math.abs(lx) <= c.hx + r * 0.5 && Math.abs(lz) <= c.hz + r * 0.5) g = c.top;
   }
@@ -81,6 +89,7 @@ export function resolveCircle(px, pz, r, colliders, feetY = 0, passes = 3) {
     let moved = false;
     for (const c of colliders) {
       if (c.top <= feetY + STEP) continue; // we're above it: it's floor, not wall
+      if (c.br !== undefined && (Math.abs(px - c.cx) > c.br + r || Math.abs(pz - c.cz) > c.br + r)) continue;
       const cos = Math.cos(c.angle), sin = Math.sin(c.angle);
       const dx = px - c.cx, dz = pz - c.cz;
       // world -> local

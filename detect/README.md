@@ -136,3 +136,24 @@ Predicted objects have `source.placed_by = "predicted"`. They get models by CLIP
   - lightness moves halfway, after normalizing the photo's exposure (photo median L → 128). Photos are often dark, and the engine lights the model again.
 
 The engine shows photo surfaces unlit (the photo already has its light). **Esc** opens a menu to turn photo textures off, which gives plain surfaces and original models. The menu also toggles predicted furniture and labels; settings are remembered per browser.
+
+## Outdoor: campus from OpenStreetMap
+
+`campus.py` builds the outdoor equivalent of a room layout from OpenStreetMap (no account needed):
+- **Buildings** become extruded blocks, using the height from OSM's `height` or `building:levels` × 3.6 m. Multi-part buildings (relations, such as Doe Library) are included. Every footprint edge is a collider.
+- **Ground:** lawns, plazas, paths and steps become flat surfaces.
+- **Street furniture:** trees, benches, street lamps, bins, bike racks and fountains become placed objects. Trees and lamps are simple procedural shapes until real models are matched.
+
+```bash
+.venv/bin/python detect/campus.py fetch berkeley_core 37.8700 -122.2620 37.8745 -122.2560   # any bbox / any campus
+.venv/bin/python detect/campus.py build berkeley_core     # -> engine/scenes/campus_berkeley_core.json
+```
+
+Central Berkeley comes out as 527 × 497 m: 54 buildings (47 named; the Campanile is 94 m), 642 paths, 132 steps, 59 lawns, 120 trees, 62 benches and 38 lamps. You spawn south of the Campanile, facing it. The engine draws outdoor scenes with sky and fog, and shadows follow the player.
+
+Not yet:
+- **Terrain:** the ground is flat, but Berkeley is hilly. Needs USGS elevation data.
+- **Photo registration:** registering campus photos to this map, e.g. Mapillary images (CC BY-SA, needs a free API token) with GPS positions.
+- **Real models** for the street furniture.
+
+Map data © OpenStreetMap contributors (ODbL).
