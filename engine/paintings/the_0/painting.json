@@ -1,0 +1,86 @@
+{
+  "id": "the_0",
+  "building": "The Campanile (Sather Tower)",
+  "size_m": [
+    10.54,
+    93.6
+  ],
+  "texture": "paintings/the_0/facade.jpg",
+  "style": "brick",
+  "rules": [],
+  "relief": {
+    "image": "paintings/the_0/relief.png",
+    "range": [
+      -1.0,
+      1.0
+    ]
+  },
+  "parts": {
+    "columns": [],
+    "openings": [],
+    "ledges": [
+      {
+        "y": 0.82,
+        "thickness": 1.2,
+        "protrude": 0.8,
+        "color": "#69635e"
+      },
+      {
+        "y": 5.58,
+        "thickness": 0.59,
+        "protrude": 0.13,
+        "color": "#595658"
+      }
+    ],
+    "wall_color": "#58555a"
+  },
+  "elements": [
+    {
+      "class": "window",
+      "score": 0.313,
+      "box": [
+        15.1,
+        -2.1,
+        171.7,
+        809.1
+      ]
+    }
+  ],
+  "analysis": {
+    "roof": {
+      "tile": 0.465,
+      "sky": 0.061,
+      "flat": 0.474
+    },
+    "style": {
+      "beaux_arts": 0.024,
+      "mission": 0.007,
+      "brutalist": 0.011,
+      "modern_glass": 0.195,
+      "brick": 0.68,
+      "craftsman": 0.082
+    }
+  },
+  "source": {
+    "photo": "photo_00.jpg",
+    "corners": [
+      [
+        20.0,
+        120.0
+      ],
+      [
+        1265.0,
+        290.0
+      ],
+      [
+        1265.0,
+        730.0
+      ],
+      [
+        20.0,
+        790.0
+      ]
+    ],
+    "credit": "South Hall - University of California, Berkeley - DSC04885.JPG by Daderot, CC0, https://commons.wikimedia.org/wiki/File:South_Hall_-_University_of_California,_Berkeley_-_DSC04885.JPG"
+  }
+}

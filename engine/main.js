@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildColliders, resolveCircle, groundHeight } from './collision.js';
+import { buildColliders, resolveCircle, groundHeight, blockWallPieces } from './collision.js';
 
 // ---------- config (tweak while testing) ----------
 const CFG = {
@@ -246,6 +246,7 @@ function buildOutdoor(sch) {
   if (surf.path?.length) worldGroup.add(flatMesh(stripGeometry(surf.path), OUT_MAT.path, 0.03));
   if (surf.steps?.length) worldGroup.add(flatMesh(stripGeometry(surf.steps), OUT_MAT.steps, 0.035));
   (sch.blocks ?? []).forEach((b, bi) => {
+    if (b.doors?.length) { buildShell(b, bi); return; }
     const g = new THREE.ExtrudeGeometry(flatShape(b.polygon), { depth: b.height, bevelEnabled: false });
     const m = new THREE.Mesh(g, [OUT_MAT.roof, OUT_MAT.building]);
     m.userData.block = bi;
@@ -399,8 +400,22 @@ function revealGeometry(pts, zBack, zFront) {
   g.computeVertexNormals();
   return g;
 }
-function buildParts(frame, p, L, H, reps, sx, sy, tex) {
+function doorRangesOnFrame(frame, block, L) {
+  // the block's doorways that lie on this wall, as [x0, x1, height] in the frame
+  const inv = frame.matrix.clone().invert(), out = [];
+  for (const d of block.doors ?? []) {
+    const a = new THREE.Vector3(d.from[0], 0, d.from[1]).applyMatrix4(inv), b = new THREE.Vector3(d.to[0], 0, d.to[1]).applyMatrix4(inv);
+    if (Math.abs(a.z) > 0.8 || Math.abs(b.z) > 0.8) continue;
+    const x0 = Math.max(0, Math.min(a.x, b.x)), x1 = Math.min(L, Math.max(a.x, b.x));
+    if (x1 - x0 > 0.3) out.push([x0, x1, d.height]);
+  }
+  return out;
+}
+function buildParts(frame, p, L, H, reps, sx, sy, tex, block) {
   const parts = p.parts, Ws = p.size_m[0];
+  const doorways = block ? doorRangesOnFrame(frame, block, L) : [];
+  const isDoor = (x0, x1, y0) => y0 < 1.0 && doorways.some(([a, b]) => x0 < b && x1 > a);
+  const usedDoor = new Set();
   // the facade sits SKIN out from the building so openings can recess into it
   const SKIN = Math.max(0.3, ...parts.openings.map((o) => o.depth)) + 0.1;
   // texture in wall meters: u wraps every facade repeat, v spans the height
@@ -417,11 +432,24 @@ function buildParts(frame, p, L, H, reps, sx, sy, tex) {
     placed.push([x0, y0, x1, y1]);
     const pts = openingOutline(o, x0, y0, x1, y1);
     wall.holes.push(new THREE.Path(pts));
+    if (isDoor(x0, x1, y0)) {            // a doorway: open all the way through the skin
+      doorways.forEach(([a, b], j) => { if (x0 < b && x1 > a) usedDoor.add(j); });
+      const rev = new THREE.Mesh(revealGeometry(pts, -0.05, SKIN), partMat(parts.wall_color, 0.8));
+      frame.add(rev);
+      continue;
+    }
     const back = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(pts)), photo);       // the window itself, from the photo
     back.position.z = SKIN - o.depth;
     const rev = new THREE.Mesh(revealGeometry(pts, SKIN - o.depth, SKIN), partMat(parts.wall_color, 0.8));
     for (const m of [back, rev]) { m.receiveShadow = true; frame.add(m); }
   }
+  doorways.forEach(([x0, x1, h], j) => {   // doorways no detected opening covers (a default door)
+    if (usedDoor.has(j) || placed.some((q) => x0 < q[2] && x1 > q[0] && q[1] < h)) return;
+    const pts = openingOutline({ arch: false }, x0, 0.02, x1, Math.min(h, H - 0.1));
+    wall.holes.push(new THREE.Path(pts));
+    placed.push([x0, 0.02, x1, h]);
+    frame.add(new THREE.Mesh(revealGeometry(pts, -0.05, SKIN), partMat(parts.wall_color, 0.8)));
+  });
   const face = new THREE.Mesh(new THREE.ShapeGeometry(wall), photo);
   face.position.z = SKIN;
   face.receiveShadow = true;
@@ -515,7 +543,11 @@ async function buildPaintings(def) {
       let face;
       const parts = p.parts && (p.parts.openings.length || p.parts.columns.length || p.parts.ledges.length);
       if (settings.relief && parts) {
-        buildParts(frame, p, L, H, reps, sx, sy, tex);
+        buildParts(frame, p, L, H, reps, sx, sy, tex, block);
+      } else if (block.doors?.length && doorRangesOnFrame(frame, block, L).length) {
+        // flat painting, but this wall has a doorway: a plain skin with the door cut out
+        buildParts(frame, { ...p, parts: { openings: [], columns: [], ledges: [], wall_color: p.parts?.wall_color ?? '#cfc8bb' } },
+                   L, H, reps, sx, sy, tex, block);
       } else if (relief) {
         face = new THREE.Mesh(reliefGeometry(relief, L, H, reps), mat);
         face.position.set(0, 0, RELIEF_BASE);
@@ -746,6 +778,54 @@ document.getElementById('pp-run').onclick = async () => {
     closePaintPanel();
   }, 1500);
 };
+
+// ---------- enterable buildings: a hollow shell with doorways ----------
+const STOREY = 4.5;     // the ground floor you can walk in
+const INTERIOR = {
+  floor: new THREE.MeshStandardMaterial({ color: 0x9b7b5b, roughness: 0.7 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: 0xe8e4dc, emissive: 0x5a5650, side: THREE.DoubleSide }),
+  wall: new THREE.MeshStandardMaterial({ color: 0xe9e3d6, roughness: 0.9 }),
+};
+function buildShell(b, bi) {
+  const T = 0.4, P = b.polygon, H = b.height;
+  const label = (m) => { m.userData.block = bi; m.castShadow = m.receiveShadow = true; worldGroup.add(m); return m; };
+  for (let k = 0; k < P.length; k++) {
+    const a = P[k], c = P[(k + 1) % P.length];
+    const ang = Math.atan2(c[1] - a[1], c[0] - a[0]);
+    // the same pieces the colliders use: full-height wall between doorways
+    for (const [p, q] of blockWallPieces(a, c, b.doors)) {
+      const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(len + T, H, T), [OUT_MAT.building, OUT_MAT.building, OUT_MAT.roof, OUT_MAT.building, OUT_MAT.building, OUT_MAT.building]);
+      m.position.set((p[0] + q[0]) / 2, H / 2, (p[1] + q[1]) / 2);
+      m.rotation.y = -ang;
+      label(m);
+    }
+    // lintel above each doorway on this edge
+    for (const d of b.doors) {
+      const on = blockWallPieces(a, c, [d]);
+      if (on.length === blockWallPieces(a, c, []).length) continue;   // not on this edge
+      const len = Math.hypot(d.to[0] - d.from[0], d.to[1] - d.from[1]);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(len, H - d.height, T), OUT_MAT.building);
+      m.position.set((d.from[0] + d.to[0]) / 2, d.height + (H - d.height) / 2, (d.from[1] + d.to[1]) / 2);
+      m.rotation.y = -ang;
+      label(m);
+    }
+  }
+  // interior: floor, ceiling of the ground storey, interior face of the upper volume
+  const shape = flatShape(P);
+  const floor = flatMesh(new THREE.ShapeGeometry(shape), INTERIOR.floor, 0.025);
+  worldGroup.add(floor);
+  const ceil = flatMesh(new THREE.ShapeGeometry(shape), INTERIOR.ceiling, Math.min(STOREY, H - 0.1));
+  worldGroup.add(ceil);
+  const roof = flatMesh(new THREE.ShapeGeometry(shape), OUT_MAT.roof, H);
+  roof.userData.block = bi;
+  worldGroup.add(roof);
+  // soft light inside so the ground floor isn't pitch dark under the shell's shadow
+  const n = P.length, cx = P.reduce((s2, p) => s2 + p[0], 0) / n, cz = P.reduce((s2, p) => s2 + p[1], 0) / n;
+  const lamp = new THREE.PointLight(0xfff1dc, 1.2, 40, 1.2);
+  lamp.position.set(cx, Math.min(STOREY, H) - 0.4, cz);
+  worldGroup.add(lamp);
+}
 
 // simple stand-ins for street furniture without a model
 const PROCEDURAL = {

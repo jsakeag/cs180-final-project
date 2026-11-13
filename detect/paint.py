@@ -591,8 +591,60 @@ def add(args):
                 "source": {"photo": pathlib.Path(args.photo).name, "corners": src.tolist(), "credit": args.credit}}
     (out / "painting.json").write_text(json.dumps(painting, indent=2))
     apply_to(scene, name, bi, k0, [s0, s1], k1)
+    update_doors(scene)
     scene_path.write_text(json.dumps(scene))
     print(f"  -> {out / 'painting.json'}; painted {block['name']} wall {k0}-{k1}")
+
+
+DOOR_MIN_H, DOOR_MAX_SILL, DEFAULT_DOOR = 1.8, 0.8, (2.0, 2.8)   # m
+
+
+def wall_frame_2d(block, k0, k1, span):
+    """Same frame the engine uses (wallFrame): origin = the wall's left end seen from
+    outside, x = viewer's right along the wall. Returns origin, x axis (plan x, z)."""
+    P = np.asarray(block["polygon"], float)
+    a, b = P[k0], P[(k1 + 1) % len(P)]
+    t = (b - a) / np.linalg.norm(b - a)
+    n = outward_normals(P)[k0]
+    x = np.array([n[1], -n[0]])                  # up x n, on the plan
+    origin = a + t * span[0] if x @ t > 0 else a + t * span[1]
+    return origin, x
+
+
+def update_doors(scene):
+    """Doorways of every painted building, in world coordinates: ground-level doors and
+    arches found in its paintings (scaled to the wall like the engine does), or one in
+    the middle of a painted wall that showed none. Buildings with doors are enterable."""
+    blocks = scene["schematic"]["blocks"]
+    for b in blocks:
+        b.pop("doors", None)
+    for app in scene.get("paintings", []):
+        pj = PAINTINGS / app["painting"] / "painting.json"
+        if not pj.exists():
+            continue
+        p = json.loads(pj.read_text())
+        block = blocks[app["block"]]
+        L = app["span"][1] - app["span"][0]
+        Ws, Hs = p["size_m"]
+        reps = max(1, round(L / Ws))
+        sx, sy = L / (reps * Ws), block["height"] / Hs
+        origin, xaxis = wall_frame_2d(block, app["edge"], app.get("edge_end", app["edge"]), app["span"])
+        ranges = []
+        for i in range(reps):
+            for o in (p.get("parts") or {}).get("openings", []):
+                y0, y1 = o["y0"] * sy, o["y1"] * sy
+                if o["kind"] in ("door", "arch") and y0 <= DOOR_MAX_SILL and y1 - y0 >= DOOR_MIN_H:
+                    x0, x1 = (o["x0"] + i * Ws) * sx, (o["x1"] + i * Ws) * sx
+                    if x1 - x0 >= 1.0:
+                        ranges.append((x0, x1, min(y1, 4.5)))
+        if not ranges:
+            w, h = DEFAULT_DOOR
+            ranges = [(L / 2 - w / 2, L / 2 + w / 2, h)]
+        doors = block.setdefault("doors", [])
+        for x0, x1, h in ranges:
+            doors.append({"from": (origin + xaxis * x0).round(3).tolist(), "to": (origin + xaxis * x1).round(3).tolist(),
+                          "height": round(float(h), 2)})
+    return sum(len(b.get("doors", [])) for b in blocks)
 
 
 def apply_to(scene, painting, bi, k, span, k_end=None):
@@ -612,6 +664,7 @@ def apply(args):
     bi, block = find_block(scene, args.building, args.near)
     k0, k1, L = wall_run(block, pick_edge(block, args.facing, args.edge, args.near))
     apply_to(scene, args.painting, bi, k0, args.span or [0.0, L], k1)
+    update_doors(scene)
     scene_path.write_text(json.dumps(scene))
     print(f"painted {block['name']} wall {k0}-{k1} ({L:.1f} m) with {args.painting}")
 
@@ -641,9 +694,17 @@ def main():
         else:
             p.add_argument("--painting", required=True)
     sub.add_parser("list")
+    dp = sub.add_parser("doors", help="recompute doorways of painted buildings")
+    dp.add_argument("--scene", default=str(DEFAULT_SCENE))
     args = ap.parse_args()
     if args.cmd in ("add", "apply") and args.facing is None and args.edge is None and args.near is None:
         raise SystemExit("say which wall: --facing, --edge or --near")
+    if args.cmd == "doors":
+        sp = pathlib.Path(args.scene)
+        scene = json.loads(sp.read_text())
+        print(f"{update_doors(scene)} doorways")
+        sp.write_text(json.dumps(scene))
+        return
     {"add": add, "apply": apply, "list": list_paintings}[args.cmd](args)
 
 

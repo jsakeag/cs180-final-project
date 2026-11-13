@@ -210,4 +210,6 @@ The scene reloads in place when done. The Esc menu also has **Exit to Scene Buil
 - modern concrete: Sproul
 - Brutalist: Evans
 
+**Enterable buildings:** a painted building becomes enterable. `paint.py` turns ground-level doors and arches from its paintings into doorways, stored on the building in world coordinates (`update_doors`; `paint.py doors` recomputes them). A painted wall that showed no door gets one in the middle. The engine then draws the building as a hollow shell, with door gaps in both the walls and the colliders, lintels above the doors, an interior floor, a ceiling at 4.5 m and an interior light. The facade's door openings stay open all the way through.
+
 Demo paintings use Wikimedia Commons photos of Wheeler (CC BY-SA 3.0), Doe Library (CC BY-SA 4.0) and Dwinelle (public domain). Credits are in each `engine/paintings/*/painting.json`.

@@ -46,14 +46,39 @@ export function objectCollider(obj, id) {
   };
 }
 
+// A wall edge a->c minus the doorways lying on it (door endpoints within 0.6 m of the
+// edge line). Returns [[from, to], ...] pieces.
+export function blockWallPieces(a, c, doors) {
+  const dx = c[0] - a[0], dz = c[1] - a[1], L = Math.hypot(dx, dz);
+  if (L < 1e-6) return [];
+  const ux = dx / L, uz = dz / L, gaps = [];
+  for (const d of doors) {
+    const t = (p) => (p[0] - a[0]) * ux + (p[1] - a[1]) * uz;
+    const off = (p) => Math.abs(-(p[0] - a[0]) * uz + (p[1] - a[1]) * ux);
+    if (off(d.from) > 0.6 || off(d.to) > 0.6) continue;
+    const t0 = Math.max(0, Math.min(t(d.from), t(d.to))), t1 = Math.min(L, Math.max(t(d.from), t(d.to)));
+    if (t1 - t0 > 0.3) gaps.push([t0, t1]);
+  }
+  gaps.sort((g, h) => g[0] - h[0]);
+  const pieces = [];
+  let s = 0;
+  for (const [g0, g1] of gaps) { if (g0 - s > 0.05) pieces.push([s, g0]); s = Math.max(s, g1); }
+  if (L - s > 0.05) pieces.push([s, L]);
+  return pieces.map(([t0, t1]) => [[a[0] + ux * t0, a[1] + uz * t0], [a[0] + ux * t1, a[1] + uz * t1]]);
+}
+
 export function buildColliders(sceneDef) {
   const out = [];
   const h = sceneDef.schematic?.wall_height ?? 2.7;
   (sceneDef.schematic?.walls ?? []).forEach((w, i) => out.push(wallCollider(w, `wall:${i}`, h)));
-  // outdoor buildings: every footprint edge is a wall as tall as the building
+  // outdoor buildings: every footprint edge is a wall as tall as the building, with
+  // gaps where an enterable building has doorways
   (sceneDef.schematic?.blocks ?? []).forEach((b, i) => {
     const P = b.polygon;
-    P.forEach((p, k) => out.push(wallCollider({ from: p, to: P[(k + 1) % P.length], thickness: 0.4 }, `block:${i}:${k}`, b.height)));
+    P.forEach((p, k) => {
+      blockWallPieces(P[k], P[(k + 1) % P.length], b.doors ?? []).forEach(([a, c], j) =>
+        out.push(wallCollider({ from: a, to: c, thickness: 0.4 }, `block:${i}:${k}:${j}`, b.height)));
+    });
   });
   (sceneDef.objects ?? []).forEach((o) => {
     if (o.collide === false) return;

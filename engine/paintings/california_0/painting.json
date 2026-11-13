@@ -2,41 +2,12 @@
   "id": "california_0",
   "building": "California Hall",
   "size_m": [
-    22.67,
+    16.27,
     8.2
   ],
   "texture": "paintings/california_0/facade.jpg",
   "style": "beaux_arts",
-  "rules": [
-    {
-      "type": "arcade",
-      "arches": [
-        [
-          10.16,
-          0.03,
-          11.85,
-          3.51
-        ],
-        [
-          2.34,
-          0.06,
-          3.71,
-          4.19
-        ],
-        [
-          13.42,
-          0.28,
-          14.69,
-          4.23
-        ]
-      ]
-    },
-    {
-      "type": "roof",
-      "shape": "hip",
-      "color": "terracotta"
-    }
-  ],
+  "rules": [],
   "relief": {
     "image": "paintings/california_0/relief.png",
     "range": [
@@ -48,171 +19,131 @@
     "columns": [],
     "openings": [
       {
-        "kind": "window",
-        "x0": 2.53,
-        "y0": 0.15,
-        "x1": 3.54,
-        "y1": 3.2,
+        "kind": "door",
+        "x0": 6.88,
+        "y0": 0.02,
+        "x1": 8.32,
+        "y1": 1.57,
         "arch": false,
-        "depth": 0.25,
+        "depth": 0.51,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 4.91,
-        "y0": 0.15,
-        "x1": 5.92,
-        "y1": 3.2,
+        "x0": -0.0,
+        "y0": 1.77,
+        "x1": 0.99,
+        "y1": 3.45,
         "arch": false,
-        "depth": 0.15,
+        "depth": 0.6,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 7.23,
-        "y0": 0.15,
-        "x1": 8.25,
-        "y1": 3.2,
-        "arch": false,
-        "depth": 0.15,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 10.42,
-        "y0": 0.15,
-        "x1": 11.43,
-        "y1": 3.2,
+        "x0": 2.65,
+        "y0": 1.77,
+        "x1": 3.64,
+        "y1": 3.45,
         "arch": false,
         "depth": 0.15,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 13.49,
-        "y0": 0.15,
-        "x1": 14.5,
-        "y1": 3.2,
+        "x0": 4.9,
+        "y0": 1.77,
+        "x1": 5.89,
+        "y1": 3.45,
         "arch": false,
         "depth": 0.17,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 0.19,
-        "y0": 4.9,
-        "x1": 0.99,
-        "y1": 6.69,
+        "x0": 7.1,
+        "y0": 1.77,
+        "x1": 8.09,
+        "y1": 3.45,
+        "arch": false,
+        "depth": 0.4,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 11.25,
+        "y0": 1.77,
+        "x1": 12.24,
+        "y1": 3.45,
         "arch": false,
         "depth": 0.15,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 2.64,
-        "y0": 4.9,
-        "x1": 3.43,
-        "y1": 6.69,
+        "x0": 13.87,
+        "y0": 1.77,
+        "x1": 14.86,
+        "y1": 3.45,
+        "arch": false,
+        "depth": 0.6,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 4.94,
+        "y0": 4.48,
+        "x1": 5.85,
+        "y1": 5.88,
+        "arch": false,
+        "depth": 0.39,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 7.14,
+        "y0": 4.48,
+        "x1": 8.05,
+        "y1": 5.88,
         "arch": false,
         "depth": 0.15,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 5.02,
-        "y0": 4.9,
-        "x1": 5.81,
-        "y1": 6.69,
+        "x0": 9.12,
+        "y0": 4.48,
+        "x1": 10.03,
+        "y1": 5.88,
         "arch": false,
         "depth": 0.15,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 7.34,
-        "y0": 4.9,
-        "x1": 8.14,
-        "y1": 6.69,
-        "arch": false,
-        "depth": 0.21,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 9.73,
-        "y0": 4.9,
-        "x1": 10.53,
-        "y1": 6.69,
+        "x0": 11.29,
+        "y0": 4.48,
+        "x1": 12.2,
+        "y1": 5.88,
         "arch": false,
         "depth": 0.15,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 10.53,
-        "y0": 4.9,
-        "x1": 11.32,
-        "y1": 6.69,
+        "x0": 12.31,
+        "y0": 4.48,
+        "x1": 13.22,
+        "y1": 5.88,
         "arch": false,
         "depth": 0.15,
         "inferred": false
       },
       {
         "kind": "window",
-        "x0": 11.26,
-        "y0": 4.9,
-        "x1": 12.06,
-        "y1": 6.69,
-        "arch": false,
-        "depth": 0.15,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 13.6,
-        "y0": 4.9,
-        "x1": 14.39,
-        "y1": 6.69,
-        "arch": false,
-        "depth": 0.15,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 15.53,
-        "y0": 4.9,
-        "x1": 16.33,
-        "y1": 6.69,
-        "arch": false,
-        "depth": 0.15,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 17.43,
-        "y0": 4.9,
-        "x1": 18.23,
-        "y1": 6.69,
-        "arch": false,
-        "depth": 0.15,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 19.23,
-        "y0": 4.9,
-        "x1": 20.03,
-        "y1": 6.69,
-        "arch": false,
-        "depth": 0.15,
-        "inferred": false
-      },
-      {
-        "kind": "window",
-        "x0": 20.94,
-        "y0": 4.9,
-        "x1": 21.73,
-        "y1": 6.69,
+        "x0": 13.54,
+        "y0": 4.48,
+        "x1": 14.45,
+        "y1": 5.88,
         "arch": false,
         "depth": 0.15,
         "inferred": false
@@ -220,311 +151,251 @@
     ],
     "ledges": [
       {
-        "y": 4.2,
-        "thickness": 0.43,
-        "protrude": 0.13,
-        "color": "#d3ceb8"
+        "y": 4.43,
+        "thickness": 1.2,
+        "protrude": 0.8,
+        "color": "#6a6755"
       }
     ],
-    "wall_color": "#cecab4"
+    "wall_color": "#616358"
   },
   "elements": [
     {
-      "class": "door",
-      "score": 0.605,
+      "class": "balcony",
+      "score": 0.548,
       "box": [
-        311.9,
-        203.0,
-        343.6,
+        170.6,
+        81.9,
+        285.6,
+        109.4
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.475,
+      "box": [
+        178.2,
+        116.5,
+        199.2,
+        245.2
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.457,
+      "box": [
+        206.4,
+        198.8,
+        249.6,
         245.4
       ]
     },
     {
       "class": "window",
-      "score": 0.439,
+      "score": 0.414,
       "box": [
-        406.2,
-        45.4,
-        430.1,
-        99.3
+        333.9,
+        69.7,
+        364.5,
+        114.8
       ]
     },
     {
       "class": "window",
-      "score": 0.439,
+      "score": 0.406,
       "box": [
-        466.0,
-        46.8,
-        489.9,
-        101.4
+        147.3,
+        142.4,
+        175.5,
+        190.7
       ]
     },
     {
       "class": "window",
-      "score": 0.419,
+      "score": 0.405,
       "box": [
-        77.9,
-        39.8,
-        104.7,
-        98.9
+        148.1,
+        69.5,
+        176.8,
+        114.0
       ]
     },
     {
       "class": "window",
-      "score": 0.403,
+      "score": 0.392,
       "box": [
-        149.1,
-        40.4,
-        175.3,
-        97.3
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.402,
-      "box": [
-        218.4,
-        40.9,
-        244.7,
-        100.2
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.401,
-      "box": [
-        523.6,
-        49.1,
-        546.0,
-        100.2
+        340.8,
+        141.8,
+        370.5,
+        188.4
       ]
     },
     {
       "class": "window",
       "score": 0.385,
       "box": [
-        578.5,
-        51.2,
-        599.3,
-        99.8
-      ]
-    },
-    {
-      "class": "balcony",
-      "score": 0.346,
-      "box": [
-        287.5,
-        0.4,
-        679.4,
-        42.8
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.334,
-      "box": [
-        630.4,
-        54.0,
-        649.7,
-        98.1
+        78.9,
+        141.9,
+        109.8,
+        193.0
       ]
     },
     {
       "class": "arch",
-      "score": 0.331,
+      "score": 0.385,
       "box": [
-        283.3,
-        95.8,
-        374.5,
-        245.4
-      ]
-    },
-    {
-      "class": "balcony",
-      "score": 0.327,
-      "box": [
-        0.8,
-        0.4,
-        392.6,
-        32.5
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.322,
-      "box": [
-        295.6,
-        42.8,
-        358.1,
-        96.6
-      ]
-    },
-    {
-      "class": "door",
-      "score": 0.31,
-      "box": [
-        309.2,
-        147.7,
-        349.6,
+        169.7,
+        82.6,
+        286.4,
         245.1
       ]
     },
     {
       "class": "window",
-      "score": 0.307,
+      "score": 0.36,
       "box": [
-        2.9,
-        38.6,
-        32.4,
-        100.5
+        212.1,
+        68.8,
+        239.4,
+        85.8
       ]
     },
     {
       "class": "window",
-      "score": 0.304,
+      "score": 0.349,
       "box": [
-        407.5,
-        148.1,
-        435.6,
-        231.6
+        273.9,
+        69.8,
+        300.8,
+        112.1
       ]
     },
     {
       "class": "window",
-      "score": 0.303,
+      "score": 0.337,
       "box": [
-        342.9,
-        46.2,
-        356.6,
-        95.3
-      ]
-    },
-    {
-      "class": "balcony",
-      "score": 0.295,
-      "box": [
-        284.0,
-        94.6,
-        374.4,
-        121.8
+        0.4,
+        142.6,
+        29.2,
+        193.5
       ]
     },
     {
       "class": "window",
-      "score": 0.285,
+      "score": 0.332,
       "box": [
-        218.1,
-        150.0,
-        247.6,
-        238.6
+        417.9,
+        148.4,
+        444.2,
+        188.9
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.331,
+      "box": [
+        205.1,
+        144.8,
+        249.3,
+        206.5
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.31,
+      "box": [
+        94.9,
+        141.8,
+        109.9,
+        192.6
       ]
     },
     {
       "class": "arch",
-      "score": 0.285,
+      "score": 0.294,
       "box": [
-        304.9,
-        140.6,
-        355.4,
-        245.2
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.283,
-      "box": [
-        75.5,
-        151.2,
-        105.9,
-        241.4
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.276,
-      "box": [
-        296.8,
-        44.8,
-        310.8,
-        95.2
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.274,
-      "box": [
-        147.8,
-        150.4,
-        177.4,
-        218.0
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.263,
-      "box": [
-        320.2,
-        45.5,
-        333.6,
-        95.3
+        206.3,
+        198.9,
+        249.6,
+        245.4
       ]
     },
     {
       "class": "arch",
-      "score": 0.258,
+      "score": 0.288,
       "box": [
-        70.2,
-        120.3,
-        111.3,
-        244.2
+        216.0,
+        80.8,
+        239.8,
+        101.9
       ]
     },
     {
-      "class": "arch",
-      "score": 0.252,
+      "class": "window",
+      "score": 0.282,
       "box": [
-        402.5,
-        119.1,
-        440.8,
-        237.5
+        372.9,
+        63.7,
+        393.1,
+        111.7
+      ]
+    },
+    {
+      "class": "door",
+      "score": 0.275,
+      "box": [
+        230.7,
+        209.2,
+        242.2,
+        245.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.27,
+      "box": [
+        405.9,
+        71.0,
+        434.0,
+        109.1
       ]
     }
   ],
   "analysis": {
     "roof": {
-      "tile": 0.998,
-      "sky": 0.0,
-      "flat": 0.002
+      "tile": 0.38,
+      "sky": 0.047,
+      "flat": 0.573
     },
     "style": {
-      "beaux_arts": 0.96,
-      "mission": 0.003,
-      "brutalist": 0.0,
-      "modern_glass": 0.0,
-      "brick": 0.002,
-      "craftsman": 0.034
+      "beaux_arts": 0.84,
+      "mission": 0.032,
+      "brutalist": 0.001,
+      "modern_glass": 0.008,
+      "brick": 0.005,
+      "craftsman": 0.113
     }
   },
   "source": {
-    "photo": "california_hall.jpg",
+    "photo": "photo_00.jpg",
     "corners": [
       [
-        110.0,
-        290.0
+        5.0,
+        60.0
       ],
       [
-        1220.0,
-        300.0
+        1275.0,
+        60.0
       ],
       [
-        1220.0,
-        530.0
+        1275.0,
+        700.0
       ],
       [
-        110.0,
-        525.0
+        5.0,
+        700.0
       ]
     ],
-    "credit": "California Hall.JPG by unknown, Public domain, https://commons.wikimedia.org/wiki/File:California_Hall.JPG"
+    "credit": "Haviland Hall (Berkeley, CA).JPG by Sanfranman59, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Haviland_Hall_(Berkeley,_CA).JPG"
   }
 }
