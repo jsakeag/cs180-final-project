@@ -5,7 +5,8 @@ usage (from the repo root):
 
 Serves the builder page at /, the engine at /engine/, and runs
   [prepare | write schematic + registration] -> detect.py --depth -> place.py
-  -> complete.py (full room + predicted furniture) -> models_catalog.py match -> (SUN only) evaluate
+  -> complete.py (full room + predicted furniture) -> models_catalog.py match
+  -> texture.py (photo textures) -> (SUN only) evaluate
 as a background job per request.
 """
 import json, pathlib, subprocess, sys, threading, time, uuid
@@ -127,6 +128,8 @@ def _pipeline_steps(images, reg_path, schematic_path, scene_out, work, match_mod
     ]
     if match_models:
         steps.append(("matching real 3D models", [PY, "detect/models_catalog.py", "match", str(scene_out)]))
+    steps.append(("painting photo textures", [PY, "detect/texture.py", str(scene_out), "--detections",
+                                              str(work / "detections.json"), "--reg", str(reg_path)]))
     return steps
 
 

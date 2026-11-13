@@ -110,3 +110,29 @@ A photo shows part of a room. `complete.py` turns a placed scene into a whole ro
 ```
 
 Predicted objects have `source.placed_by = "predicted"`. They get models by CLIP text ("a photo of a sofa") plus the average look of the photographed furniture. The engine labels them "(predicted)", and **O** hides or shows them. `evaluate.py` ignores them, because SUN ground truth only covers what the camera saw. Learned relations look right (nightstand about 1 m beside the bed at the headboard; coffee table about 1 m in front of the sofa; chair about 0.5 m in front of the desk). Whole-room predictions can't be scored against SUN, which has no full-room ground truth.
+
+## Photo textures
+
+`texture.py` paints the photos back onto the scene (the builder's last step):
+
+- **Object outlines.** Each seen object is cut out of its detection box with GrabCut. The outline is used three ways:
+  - it is masked out of floor and wall sampling (the box would also hide the wall around the object)
+  - it supplies the object's colors
+  - it goes into a per-photo label image for projection
+- **Floor and walls.** Every texel of the floor (top-down, 80 px/m) and of each wall is projected into each photo with the recovered camera. It is sampled only where that surface is really what the photo shows:
+  - in frame and in front of the camera
+  - not seen at a grazing angle (cos > 0.2)
+  - outside every object's outline
+  - no farther than the depth map says, so it isn't hidden behind something
+
+  With several photos, the closest view wins. This is proj4a's rectification run per texel, with a visibility test. Unseen floor is filled by mirror-tiling a clean patch of what was seen, but only if the patch is uniform (wood grain, carpet). A rug or a poster would tile into a kaleidoscope, so then the fill is the median color, feathered into the seen part. Unseen walls get the room's paint color.
+- **Furniture, pattern: projective texturing (engine).** Each photo becomes a projector built from the camera's real intrinsics K. A depth pre-pass is rendered from the photo camera. A model fragment takes the photo's pixel if:
+  - it is the surface that camera sees (depth test)
+  - the pixel lies inside that object's outline (label image)
+
+  From the photo viewpoint the bed shows the real quilt. From elsewhere, the pattern stays on the surfaces that faced the camera. Where the model is bigger than the real object's outline, the model keeps its own texture.
+- **Furniture, color everywhere else: Reinhard color transfer** in Lab of the model's base-color textures toward the object's outline pixels:
+  - color (a, b) moves fully
+  - lightness moves halfway, after normalizing the photo's exposure (photo median L → 128). Photos are often dark, and the engine lights the model again.
+
+The engine shows photo surfaces unlit (the photo already has its light). **Esc** opens a menu to turn photo textures off, which gives plain surfaces and original models. The menu also toggles predicted furniture and labels; settings are remembered per browser.

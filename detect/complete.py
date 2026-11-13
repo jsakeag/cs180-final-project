@@ -84,10 +84,11 @@ class Cam:
         self.tv = math.tan(math.radians(c["fov_v_deg"]) / 2)
         self.th = self.tv * c.get("aspect", 4 / 3)
 
-    def sees(self, P):
+    def sees(self, P, margin=1.1):
+        """In view (frustum widened by `margin` so near-misses at the frame edge count)."""
         d = np.atleast_2d(P) - self.C
         z, x, y = d @ self.f, d @ self.r, d @ self.u
-        return (z > 0.2) & (np.abs(x) <= self.th * z) & (np.abs(y) <= self.tv * z)
+        return (z > 0.2) & (np.abs(x) <= margin * self.th * z) & (np.abs(y) <= margin * self.tv * z)
 
 
 def seen(cams, P):
@@ -446,11 +447,11 @@ def predict(scene, room, cams, prior):
                 if np.linalg.norm(dvec) < FACE_RANGE_PRED and np.dot(f, dvec) < 0.7 * np.linalg.norm(dvec):
                     continue                      # a seat next to its table faces it
             quad = corners(c, ux, f, w, d)
-            if any(np.linalg.norm(c - q) < 0.7 for q in cam_xz):
+            if any(np.linalg.norm(c - q) < 1.0 for q in cam_xz):
                 continue
             # the camera would have seen it: sample the footprint at floor and top height
             samp = [c + a * ux * w / 2.2 + b * f * d / 2.2 for a in (-1, 0, 1) for b in (-1, 0, 1)]
-            S3 = np.array([[p[0], y, p[1]] for p in samp for y in (0.02, 0.9 * h)])
+            S3 = np.array([[p[0], y, p[1]] for p in samp for y in (0.02, 0.35 * h, 0.7 * h, h)])
             if seen(cams, S3).any():
                 continue
             clash = False

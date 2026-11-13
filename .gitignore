@@ -11,3 +11,4 @@ builder/jobs/
 engine/scenes/sun_*.json
 engine/scenes/upload_*.json
 detect/scenes/sun_*/
+engine/textures/

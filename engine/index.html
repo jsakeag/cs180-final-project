@@ -15,6 +15,20 @@
     #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
                color: #fff; font-size: 18px; background: rgba(0,0,0,.45); cursor: pointer; }
     #overlay.hidden { display: none; }
+    #menu { background: rgba(20,22,26,.92); border: 1px solid #333; border-radius: 10px; padding: 18px 20px;
+            width: min(440px, calc(100vw - 32px)); cursor: default; }
+    #menu h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    #menu p { margin: 0 0 12px; font-size: 12px; color: #aaa; }
+    #menu .toggle { display: grid; grid-template-columns: 48px 1fr; gap: 2px 10px; width: 100%; text-align: left;
+                    background: #22262c; color: #eee; border: 1px solid #333; border-radius: 6px; padding: 8px 10px;
+                    margin-bottom: 8px; font: inherit; font-size: 13px; cursor: pointer; }
+    #menu .toggle:hover { border-color: #4fa3ff; }
+    #menu .state { grid-row: span 2; align-self: center; text-align: center; border-radius: 4px; padding: 2px 0;
+                   background: #444; font-size: 11px; color: #ccc; }
+    #menu .state.on { background: #2f7d4f; color: #fff; }
+    #menu .hint { font-size: 11px; color: #999; }
+    #menu #resume { width: 100%; margin-top: 4px; padding: 9px; font: inherit; font-size: 14px; border: 0;
+                    border-radius: 6px; background: #4fa3ff; color: #08131f; cursor: pointer; }
     #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
                  border-radius: 50%; background: rgba(255,255,255,.8); pointer-events: none; }
   </style>
@@ -30,8 +44,15 @@
 <body>
   <div id="hud">loading…</div>
   <div id="crosshair"></div>
-  <div id="help">click to play · WASD move · Space jump · Shift sprint · mouse look · scroll zoom · V 1st/3rd person · P photo viewpoints · O predicted objects · C colliders · L labels · G grid · R respawn · Esc release</div>
-  <div id="overlay">click to play</div>
+  <div id="help">click to play · WASD move · Space jump · Shift sprint · mouse look · scroll zoom · V 1st/3rd person · P photo viewpoints · O predicted objects · C colliders · L labels · G grid · R respawn · Esc menu</div>
+  <div id="overlay">
+    <div id="menu">
+      <h2>Paused</h2>
+      <p>Esc opens this menu. Settings are remembered in this browser.</p>
+      <div class="items"></div>
+      <button id="resume">Click to play</button>
+    </div>
+  </div>
   <script type="module" src="./main.js"></script>
 </body>
 </html>

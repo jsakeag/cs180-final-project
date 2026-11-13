@@ -54,6 +54,12 @@ avatar.castShadow = true;
 avatar.visible = false;
 scene.add(avatar);
 
+// ---------- settings (Esc menu; remembered per browser) ----------
+const SETTINGS_KEY = 'engine-settings';
+const settings = { photoTextures: true, predicted: true, labels: true };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* private mode */ }
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ } }
+
 // ---------- state ----------
 const player = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vx: 0, vy: 0, vz: 0, grounded: true, hits: [] };
 let sceneDef = null;
@@ -98,7 +104,102 @@ function colliderOutline(c) {
 }
 
 const gltfLoader = new GLTFLoader();
+const texLoader = new THREE.TextureLoader();
+function photoTexture(path) {
+  const t = texLoader.load(path);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
 const models = { total: 0, loaded: 0, failed: 0 };  // shown in the HUD
+
+// ---------- projecting the photo onto furniture ----------
+// Each photo becomes a projector with the photo camera's real intrinsics. A model
+// fragment takes the photo's pixel when (1) it's visible from that camera (depth pre-pass
+// from the photo camera) and (2) the pixel belongs to that object's silhouette in the
+// photo (label image from texture.py). From the photo viewpoint the model looks like the
+// photo; elsewhere it keeps its own (photo-recolored) texture.
+const PROJ_NEAR = 0.3, PROJ_FAR = 40, PROJ_BIAS = 0.0015;
+let projectors = [];
+function makeProjector(c) {
+  const [fx, fy, cx, cy] = c.K, [w, h] = c.size;
+  const pcam = new THREE.PerspectiveCamera();
+  pcam.rotation.order = 'YXZ';
+  pcam.position.set(c.position[0], c.position[1], c.position[2]);
+  pcam.rotation.set(THREE.MathUtils.degToRad(c.pitch_deg), THREE.MathUtils.degToRad(c.yaw_deg), 0);
+  pcam.updateMatrixWorld(true);
+  const n = PROJ_NEAR, f = PROJ_FAR;
+  const P = new THREE.Matrix4().set(
+    2 * fx / w, 0, 1 - 2 * cx / w, 0,
+    0, 2 * fy / h, 2 * cy / h - 1, 0,
+    0, 0, -(f + n) / (f - n), -2 * f * n / (f - n),
+    0, 0, -1, 0);
+  pcam.projectionMatrix.copy(P);
+  pcam.projectionMatrixInverse.copy(P).invert();
+  const rt = new THREE.WebGLRenderTarget(1024, Math.round(1024 * h / w));
+  rt.depthTexture = new THREE.DepthTexture(rt.width, rt.height);
+  const photo = texLoader.load(c.photo);              // raw sRGB: written after color conversion
+  photo.colorSpace = THREE.NoColorSpace;
+  const labels = texLoader.load(c.labels);
+  labels.colorSpace = THREE.NoColorSpace;
+  labels.magFilter = labels.minFilter = THREE.NearestFilter;
+  labels.generateMipmaps = false;
+  return { pcam, rt, photo, labels, VP: new THREE.Matrix4().multiplyMatrices(P, pcam.matrixWorldInverse) };
+}
+function projectedMaterial(mat, proj, label) {
+  const m = mat.clone();
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, {
+      photoVP: { value: proj.VP }, photoTex: { value: proj.photo }, photoLabels: { value: proj.labels },
+      photoDepth: { value: proj.rt.depthTexture }, photoLabel: { value: label },
+    });
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vPhotoWorld;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvPhotoWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec3 vPhotoWorld;
+uniform mat4 photoVP;
+uniform sampler2D photoTex;
+uniform sampler2D photoLabels;
+uniform sampler2D photoDepth;
+uniform float photoLabel;`)
+      .replace('#include <dithering_fragment>', `{
+  vec4 pc = photoVP * vec4(vPhotoWorld, 1.0);
+  if (pc.w > 0.0) {
+    vec3 nd = pc.xyz / pc.w;
+    vec2 puv = nd.xy * 0.5 + 0.5;
+    if (puv.x > 0.0 && puv.x < 1.0 && puv.y > 0.0 && puv.y < 1.0) {
+      float seenDepth = texture2D(photoDepth, puv).x;
+      float lbl = floor(texture2D(photoLabels, puv).r * 255.0 + 0.5);
+      if (nd.z * 0.5 + 0.5 <= seenDepth + ${PROJ_BIAS} && abs(lbl - photoLabel) < 0.5)
+        gl_FragColor.rgb = texture2D(photoTex, puv).rgb;
+    }
+  }
+}
+#include <dithering_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'photo-projected';
+  return m;
+}
+const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
+function renderProjectionDepth() {
+  if (!projectors.some(Boolean)) return;
+  const hidden = [labelGroup, debugGroup, avatar].filter((g) => g.visible);
+  hidden.forEach((g) => { g.visible = false; });
+  const gridWas = grid?.visible;
+  if (grid) grid.visible = false;
+  scene.overrideMaterial = depthOnly;
+  for (const p of projectors.filter(Boolean)) {
+    renderer.setRenderTarget(p.rt);
+    renderer.clear();
+    renderer.render(scene, p.pcam);
+  }
+  renderer.setRenderTarget(null);
+  scene.overrideMaterial = null;
+  hidden.forEach((g) => { g.visible = true; });
+  if (grid) grid.visible = gridWas;
+}
 
 // Fit a loaded model uniformly into the object's bbox, bottom on the floor.
 function fitModel(root, size) {
@@ -114,6 +215,7 @@ function fitModel(root, size) {
 // ---------- scene building ----------
 function buildScene(def) {
   for (const g of [worldGroup, objectGroup, debugGroup, labelGroup]) g.clear();
+  models.total = models.loaded = models.failed = 0;
   if (grid) scene.remove(grid);
 
   const sch = def.schematic ?? {};
@@ -132,7 +234,23 @@ function buildScene(def) {
   } else {
     floorGeom = new THREE.PlaneGeometry(fw, fd);
   }
-  const floor = new THREE.Mesh(floorGeom, new THREE.MeshStandardMaterial({ color: 0x8a8070 }));
+  const pt = settings.photoTextures ? def.photo_textures : null;
+  for (const p of projectors) p?.rt.dispose();
+  projectors = pt ? (def.cameras ?? []).map((c) => (c.K && c.photo && c.labels ? makeProjector(c) : null)) : [];
+  let floorMat = new THREE.MeshStandardMaterial({ color: 0x8a8070 });
+  if (pt?.floor) {
+    // the photo's floor, rectified top-down in meters: uv from world x / z
+    const [x0, z0] = pt.floor.min, [x1, z1] = pt.floor.max;
+    const cx = fmin[0] + fw / 2, cz = fmin[1] + fd / 2;
+    const pos = floorGeom.attributes.position, uv = [];
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i) + cx, z = cz - pos.getY(i);
+      uv.push((x - x0) / (x1 - x0), 1 - (z - z0) / (z1 - z0));
+    }
+    floorGeom.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    floorMat = new THREE.MeshBasicMaterial({ map: photoTexture(pt.floor.image) });   // unlit: the photo has its own light
+  }
+  const floor = new THREE.Mesh(floorGeom, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(fmin[0] + fw / 2, 0, fmin[1] + fd / 2);
   floor.receiveShadow = true;
@@ -155,7 +273,17 @@ function buildScene(def) {
   // walls (render from the same colliders so visuals == physics)
   const wallMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c4 });
   for (const c of colliders.filter((c) => c.id.startsWith('wall:'))) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(c.hx * 2, wallH, c.hz * 2), wallMat);
+    const geo = new THREE.BoxGeometry(c.hx * 2, wallH, c.hz * 2);
+    let mat = wallMat;
+    const img = pt?.walls?.[c.id.slice(5)];
+    if (img) {
+      // big faces (+z, -z) show the wall's photo texture, u running from -> to on both
+      const uv = geo.attributes.uv;
+      for (let i = 20; i < 24; i++) uv.setX(i, 1 - uv.getX(i));
+      const photo = new THREE.MeshBasicMaterial({ map: photoTexture(img) });
+      mat = [wallMat, wallMat, wallMat, wallMat, photo, photo];
+    }
+    const m = new THREE.Mesh(geo, mat);
     m.position.set(c.cx, wallH / 2, c.cz);
     m.rotation.y = -c.angle;
     m.castShadow = m.receiveShadow = true;
@@ -178,15 +306,28 @@ function buildScene(def) {
     placeholder.castShadow = placeholder.receiveShadow = true;
     holder.add(placeholder);
 
-    if (o.model) {
+    const modelPath = (settings.photoTextures && o.model_photo) || o.model;
+    if (modelPath) {
       models.total++;
-      gltfLoader.load(o.model, (gltf) => {
+      gltfLoader.load(modelPath, (gltf) => {
         fitModel(gltf.scene, o.size);
-        gltf.scene.traverse((n) => { if (n.isMesh) n.castShadow = n.receiveShadow = true; });
+        const proj = o.photo_proj && projectors[o.photo_proj.camera];
+        gltf.scene.traverse((n) => {
+          if (!n.isMesh) return;
+          n.castShadow = n.receiveShadow = true;
+          if (proj) n.material = Array.isArray(n.material)
+            ? n.material.map((m) => projectedMaterial(m, proj, o.photo_proj.label))
+            : projectedMaterial(n.material, proj, o.photo_proj.label);
+        });
         holder.remove(placeholder);
         holder.add(gltf.scene);
         models.loaded++;
-      }, undefined, (err) => { models.failed++; console.warn(`model failed for ${o.id}:`, err); });
+        if (models.loaded + models.failed === models.total) renderProjectionDepth();
+      }, undefined, (err) => {
+        models.failed++;
+        console.warn(`model failed for ${o.id}:`, err);
+        if (models.loaded + models.failed === models.total) renderProjectionDepth();
+      });
     }
 
     const conf = o.source?.confidence;
@@ -198,6 +339,8 @@ function buildScene(def) {
   }
 
   for (const c of colliders) debugGroup.add(colliderOutline(c));
+  labelGroup.visible = settings.labels;
+  applyPredicted();
   respawn();
 }
 
@@ -214,7 +357,7 @@ function respawn() {
 
 // ---------- input ----------
 const overlay = document.getElementById('overlay');
-overlay.addEventListener('click', () => renderer.domElement.requestPointerLock());
+overlay.addEventListener('click', (e) => { if (e.target === overlay) renderer.domElement.requestPointerLock(); });
 renderer.domElement.addEventListener('click', () => renderer.domElement.requestPointerLock());
 document.addEventListener('pointerlockchange', () => {
   overlay.classList.toggle('hidden', document.pointerLockElement === renderer.domElement);
@@ -238,7 +381,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') e.preventDefault();
   keys.add(e.code);
   if (e.code === 'KeyC') debugGroup.visible = !debugGroup.visible;
-  if (e.code === 'KeyL') labelGroup.visible = !labelGroup.visible;
+  if (e.code === 'KeyL') toggleLabels();
   if (e.code === 'KeyG' && grid) grid.visible = !grid.visible;
   if (e.code === 'KeyR') respawn();
   if (e.code === 'KeyO') togglePredicted();
@@ -359,15 +502,46 @@ function updateCamera() {
 }
 
 // O: hide / show furniture the room model predicted for the parts no photo saw
-let showPredicted = true;
-function togglePredicted() {
-  showPredicted = !showPredicted;
-  for (const g of [objectGroup, labelGroup]) for (const n of g.children) if (n.userData.predicted) n.visible = showPredicted;
+function applyPredicted() {
+  const show = settings.predicted;
+  for (const g of [objectGroup, labelGroup]) for (const n of g.children) if (n.userData.predicted) n.visible = show;
   const hidden = new Set(sceneDef.objects.filter((o) => o.source?.placed_by === 'predicted').map((o) => `obj:${o.id}`));
-  colliders = buildColliders(sceneDef).filter((c) => showPredicted || !hidden.has(c.id));
+  colliders = buildColliders(sceneDef).filter((c) => show || !hidden.has(c.id));
   debugGroup.clear();
   for (const c of colliders) debugGroup.add(colliderOutline(c));
 }
+function togglePredicted() { settings.predicted = !settings.predicted; saveSettings(); applyPredicted(); renderMenu(); }
+
+// rebuild the scene in place (keeps where the player is)
+function rebuildKeepingPlayer() {
+  const keep = { ...player };
+  buildScene(sceneDef);
+  Object.assign(player, keep);
+}
+function togglePhotoTextures() { settings.photoTextures = !settings.photoTextures; saveSettings(); rebuildKeepingPlayer(); renderMenu(); }
+function toggleLabels() { settings.labels = !settings.labels; labelGroup.visible = settings.labels; saveSettings(); renderMenu(); }
+
+// ---------- Esc menu ----------
+const menu = document.getElementById('menu');
+const MENU_ITEMS = [
+  ['photoTextures', 'Photo textures', 'floor, walls and furniture colors taken from the photos (off = plain, faster)', togglePhotoTextures],
+  ['predicted', 'Predicted furniture', 'pieces the room model added where no photo looked', togglePredicted],
+  ['labels', 'Labels', 'class names over objects', toggleLabels],
+];
+function renderMenu() {
+  menu.querySelector('.items').innerHTML = MENU_ITEMS.map(([k, name, hint]) =>
+    `<button class="toggle" data-k="${k}"><span class="state ${settings[k] ? 'on' : ''}">${settings[k] ? 'ON' : 'OFF'}</span>` +
+    `<span class="name">${name}</span><span class="hint">${hint}</span></button>`).join('');
+}
+menu.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  e.stopPropagation();
+  if (b.id === 'resume') { renderer.domElement.requestPointerLock(); return; }
+  const item = MENU_ITEMS.find(([k]) => k === b.dataset.k);
+  if (item) item[3]();
+});
+renderMenu();
 
 // ---------- HUD ----------
 const hud = document.getElementById('hud');
@@ -383,7 +557,7 @@ function updateHud(dt) {
     `yaw    ${deg.toFixed(0)}°   speed ${Math.hypot(player.vx, player.vz).toFixed(2)} m/s\n` +
     `view   ${photoCam ? `photo ${photoCam.image.split('/').pop()} (WASD to leave)` : thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
     `touch  ${player.hits.join(' ') || '-'}\n` +
-    (nPredicted() ? `room   ${sceneDef.schematic.room?.scene_type ?? ''} · ${nPredicted()} predicted ${showPredicted ? '(O hides)' : '(hidden, O shows)'}\n` : '') +
+    (nPredicted() ? `room   ${sceneDef.schematic.room?.scene_type ?? ''} · ${nPredicted()} predicted ${settings.predicted ? '(O hides)' : '(hidden, O shows)'}\n` : '') +
     (models.total ? `models ${models.loaded}/${models.total}${models.failed ? ` (${models.failed} failed)` : models.loaded < models.total ? ' loading...' : ''}\n` : '') +
     `fps    ${fps.toFixed(0)}`;
 }
