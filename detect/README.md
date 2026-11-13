@@ -212,4 +212,13 @@ The scene reloads in place when done. The Esc menu also has **Exit to Scene Buil
 
 **Enterable buildings:** a painted building becomes enterable. `paint.py` turns ground-level doors and arches from its paintings into doorways, stored on the building in world coordinates (`update_doors`; `paint.py doors` recomputes them). A painted wall that showed no door gets one in the middle. The engine then draws the building as a hollow shell, with door gaps in both the walls and the colliders, lintels above the doors, an interior floor, a ceiling at 4.5 m and an interior light. The facade's door openings stay open all the way through.
 
+**Furnished interiors** (`interior.py`): an enterable building's ground floor is furnished from the room prior, which now also learns `classroom` and `library` from SUN RGB-D (376 and 309 frames). A building is a library if its name says so, otherwise a classroom.
+- **Units:** an anchor (table, desk, sofa) with satellites placed at the densest learned positions (the peaks of the relation samples). Chairs per table = the ratio of their learned rates.
+- **Rows:** units fill rows along the building's wall axis, outward from the entrance, facing away from it.
+- **Walls:** shelf-like classes line the walls in proportion to how often they stood against one (`p_wall`). The rest stand free in rows; in libraries bookshelves stand against walls only 65% of the time, so that fraction gives free-standing stacks.
+- **Limits:** doorways stay clear, and a building gets at most 140 pieces.
+- **Models:** matched with room-aware CLIP text ("a table for a library").
+
+The engine loads a building's furniture only when you come within 70 m, hides it when you're farther away, parses each model once and clones it, and skips furniture shadows indoors. Painting a building in the game or in the builder furnishes it automatically.
+
 Demo paintings use Wikimedia Commons photos of Wheeler (CC BY-SA 3.0), Doe Library (CC BY-SA 4.0) and Dwinelle (public domain). Credits are in each `engine/paintings/*/painting.json`.

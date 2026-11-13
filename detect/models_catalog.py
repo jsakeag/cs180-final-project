@@ -327,7 +327,7 @@ def size_score(extent, size):
     return float(min(a, b))
 
 
-def match(scene_path, top_k=5, size_weight=0.2, refit=True):
+def match(scene_path, top_k=5, size_weight=0.2, refit=True, missing_only=False):
     from PIL import Image
     scene_path = pathlib.Path(scene_path)
     scene = json.loads(scene_path.read_text())
@@ -349,7 +349,10 @@ def match(scene_path, top_k=5, size_weight=0.2, refit=True):
     if seen_crops:
         style = clip.embed(seen_crops).mean(0)
         style /= np.linalg.norm(style)
+    text_cache = {}
     for o in scene["objects"]:
+        if missing_only and o.get("model"):
+            continue
         group = next((g for g in MATCH_GROUPS if o["class"] in g), (o["class"],))
         idx = [i for cls in group for i in by_class.get(cls, [])]
         src = o.get("source", {})
@@ -363,7 +366,12 @@ def match(scene_path, top_k=5, size_weight=0.2, refit=True):
             q = clip.embed([crop])[0]
         else:  # predicted (never photographed): match on the class name + style of what was seen
             kind = "table " if src.get("on_top_of") else ""      # a lamp on a nightstand is a table lamp
-            q = clip.embed_text([f"a photo of a {kind}{o['class'].replace('_', ' ')}"])[0]
+            text = f"a photo of a {kind}{o['class'].replace('_', ' ')}"
+            if src.get("room_type"):        # furnishing a room: what such a room would have
+                text = f"a {o['class'].replace('_', ' ')} for a {src['room_type'].replace('_', ' ')}"
+            if text not in text_cache:
+                text_cache[text] = clip.embed_text([text])[0]
+            q = text_cache[text]
             if style is not None:
                 q = q / np.linalg.norm(q) + 0.5 * style
                 q /= np.linalg.norm(q)
@@ -402,7 +410,7 @@ def match(scene_path, top_k=5, size_weight=0.2, refit=True):
             o["size"] = [round(float(v), 3) for v in ext * k]
             o["model_info"]["scale_vs_real"] = round(k, 3)
         print(f"  {o['id']:<12} -> {c['source']}:{c['id']} sim {sim:.2f}  {c['name'][:60]}")
-    scene["credits"] = sorted(credits.values())
+    scene["credits"] = sorted(set(scene.get("credits", [])) | set(credits.values()))   # keep map/photo credits
     scene_path.write_text(json.dumps(scene, indent=2))
     print(f"updated {scene_path}")
 
@@ -415,6 +423,7 @@ def main():
     m = sub.add_parser("match")
     m.add_argument("scene")
     m.add_argument("--no-refit", action="store_true")
+    m.add_argument("--missing", action="store_true", help="only objects without a model yet")
     args = ap.parse_args()
     if args.cmd == "build":
         build()
@@ -424,7 +433,7 @@ def main():
             shrink_glb(p)
             print(f"{p.name}: {before / 1e6:.1f} -> {p.stat().st_size / 1e6:.1f} MB")
     else:
-        match(args.scene, refit=not args.no_refit)
+        match(args.scene, refit=not args.no_refit, missing_only=args.missing)
 
 
 if __name__ == "__main__":

@@ -189,6 +189,11 @@ def run_upload():
 # ------------------------------------------------------------------ Paint Berkeley
 
 CAMPUS = "scenes/campus_berkeley_core.json"
+# a painted building becomes enterable: furnish any new interior and give it models
+FURNISH_STEPS = [
+    ("furnishing new interiors", [PY, "detect/interior.py", "furnish", "--new", "--scene", str(ENGINE / CAMPUS)]),
+    ("matching interior models", [PY, "detect/models_catalog.py", "match", str(ENGINE / CAMPUS), "--missing"]),
+]
 
 
 @app.get("/api/paintings")
@@ -249,7 +254,7 @@ def paint():
            "--credit", (work / "credit.txt").read_text() if (work / "credit.txt").exists() else "uploaded"]
     if label:
         cmd += ["--name", label]
-    return _start(f"paint_{uuid.uuid4().hex[:6]}", [("painting the facade", cmd)], CAMPUS, work)
+    return _start(f"paint_{uuid.uuid4().hex[:6]}", [("painting the facade", cmd)] + FURNISH_STEPS, CAMPUS, work)
 
 
 @app.post("/api/paint/apply")
@@ -261,6 +266,8 @@ def paint_apply():
                         "--near", str(body["near"][0]), str(body["near"][1])], cwd=REPO, capture_output=True, text=True)
     if r.returncode:
         abort(400, (r.stdout + r.stderr)[-400:])
+    for _, cmd in FURNISH_STEPS:      # a newly enterable building gets its interior now
+        subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     return jsonify({"message": r.stdout.strip()})
 
 

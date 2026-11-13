@@ -21,7 +21,7 @@ from priors import SIZE_PRIORS  # noqa: E402
 
 ANN = sunrgbd.DATA / "ann"
 PRIOR = ROOT / "data" / "room_prior.json"
-TYPES = ["bedroom", "living_room", "office", "dining_area"]
+TYPES = ["bedroom", "living_room", "office", "dining_area", "classroom", "library"]
 WALL_GAP = 0.35        # a side this close to a wall (and parallel) is "against the wall"
 PAIR_RANGE = 3.5       # relations are only learned between objects this close
 MAX_PAIR_SAMPLES = 400

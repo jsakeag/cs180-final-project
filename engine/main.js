@@ -108,6 +108,11 @@ function colliderOutline(c) {
 }
 
 const gltfLoader = new GLTFLoader();
+const modelCache = new Map();
+function loadModel(path) {
+  if (!modelCache.has(path)) modelCache.set(path, gltfLoader.loadAsync(path));
+  return modelCache.get(path);
+}
 const texLoader = new THREE.TextureLoader();
 function photoTexture(path) {
   const t = texLoader.load(path);
@@ -827,6 +832,54 @@ function buildShell(b, bi) {
   worldGroup.add(lamp);
 }
 
+// ---------- interiors: per-building furniture, loaded when you come near ----------
+const INTERIOR_NEAR = 70;   // m from the building's center
+const interiors = new Map();  // block index -> { group, center, objs, loaded }
+function addInteriorObject(o, def) {
+  const bi = o.source.block;
+  if (!interiors.has(bi)) {
+    const P = def.schematic.blocks[bi].polygon, n = P.length;
+    const group = new THREE.Group();
+    group.visible = false;
+    objectGroup.add(group);
+    interiors.set(bi, { group, objs: [], loaded: false, radius: Math.max(...P.map((p) => Math.hypot(p[0] - P.reduce((s2, q) => s2 + q[0], 0) / n, p[1] - P.reduce((s2, q) => s2 + q[1], 0) / n))),
+      center: [P.reduce((s2, p) => s2 + p[0], 0) / n, P.reduce((s2, p) => s2 + p[1], 0) / n] });
+  }
+  interiors.get(bi).objs.push(o);
+}
+function loadInterior(it) {
+  it.loaded = true;
+  for (const o of it.objs) {
+    const holder = new THREE.Group();
+    holder.position.set(o.position[0], o.position[1] ?? 0, o.position[2]);
+    holder.rotation.y = THREE.MathUtils.degToRad(o.rotation_y ?? 0);
+    holder.userData = o;
+    it.group.add(holder);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(...o.size), new THREE.MeshStandardMaterial({ color: colorFor(o.class) }));
+    box.position.y = o.size[1] / 2;
+    holder.add(box);
+    const path = (settings.photoTextures && o.model_photo) || o.model;
+    if (path) loadModel(path).then((src) => {
+      const m = src.scene.clone(true);
+      fitModel(m, o.size);
+      m.traverse((n) => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = true; } });   // no sun reaches inside
+      holder.remove(box);
+      holder.add(m);
+    }).catch(() => {});
+  }
+}
+let interiorTick = 0;
+function updateInteriors(dt) {
+  if ((interiorTick += dt) < 0.4) return;
+  interiorTick = 0;
+  for (const it of interiors.values()) {
+    const d = Math.hypot(player.x - it.center[0], player.z - it.center[1]) - it.radius;
+    const near = d < INTERIOR_NEAR;
+    if (near && !it.loaded) loadInterior(it);
+    it.group.visible = near;
+  }
+}
+
 // simple stand-ins for street furniture without a model
 const PROCEDURAL = {
   tree(o) {
@@ -949,8 +1002,10 @@ function buildScene(def) {
 
   if (def.outdoor) { buildOutdoor(sch); buildPaintings(def); }
 
-  // objects
+  // objects (interior furniture goes into a per-building group, loaded on approach)
+  interiors.clear();
   for (const o of def.objects ?? []) {
+    if (o.source?.placed_by === 'interior') { addInteriorObject(o, def); continue; }
     const holder = new THREE.Group();
     holder.position.set(o.position[0], o.position[1] ?? 0, o.position[2]);
     holder.rotation.y = THREE.MathUtils.degToRad(o.rotation_y ?? 0);
@@ -968,7 +1023,8 @@ function buildScene(def) {
     const modelPath = (settings.photoTextures && o.model_photo) || o.model;
     if (modelPath) {
       models.total++;
-      gltfLoader.load(modelPath, (gltf) => {
+      loadModel(modelPath).then((src) => {
+        const gltf = { scene: src.scene.clone(true) };   // a hall reuses one chair model 100x: parse once
         fitModel(gltf.scene, o.size);
         const proj = o.photo_proj && projectors[o.photo_proj.camera];
         gltf.scene.traverse((n) => {
@@ -982,7 +1038,7 @@ function buildScene(def) {
         holder.add(gltf.scene);
         models.loaded++;
         if (models.loaded + models.failed === models.total) renderProjectionDepth();
-      }, undefined, (err) => {
+      }).catch((err) => {
         models.failed++;
         console.warn(`model failed for ${o.id}:`, err);
         if (models.loaded + models.failed === models.total) renderProjectionDepth();
@@ -1252,6 +1308,7 @@ function loop() {
     updatePlayer(dt);
     updateCamera();
     updatePaintHover();
+    updateInteriors(dt);
     updateHud(dt);
   }
   renderer.render(scene, camera);
