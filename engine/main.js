@@ -367,6 +367,92 @@ function hipRoof(block) {
   m.castShadow = m.receiveShadow = true;
   return m;
 }
+// ---------- architectural parts fitted to the photo (paint.py fit_parts) ----------
+const partMats = new Map();
+function partMat(hex, k = 1) {
+  const key = `${hex}:${k}`;
+  if (!partMats.has(key)) partMats.set(key, new THREE.MeshStandardMaterial({ color: new THREE.Color(hex).multiplyScalar(k), roughness: 0.85 }));
+  return partMats.get(key);
+}
+function openingOutline(o, x0, y0, x1, y1) {
+  // rectangle, or rectangle with a semicircular head for arches; counter-clockwise points
+  const pts = [new THREE.Vector2(x0, y0), new THREE.Vector2(x1, y0)];
+  if (o.arch) {
+    const r = (x1 - x0) / 2, cy = Math.max(y0 + 0.1, y1 - r);
+    pts.push(new THREE.Vector2(x1, cy));
+    for (let i = 1; i < 12; i++) { const a = (i / 12) * Math.PI; pts.push(new THREE.Vector2((x0 + x1) / 2 + r * Math.cos(a), cy + r * Math.sin(a))); }
+    pts.push(new THREE.Vector2(x0, cy));
+  } else {
+    pts.push(new THREE.Vector2(x1, y1), new THREE.Vector2(x0, y1));
+  }
+  return pts;
+}
+function revealGeometry(pts, zBack, zFront) {
+  // the inside faces of an opening: one quad per outline edge
+  const pos = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    pos.push(a.x, a.y, zFront, b.x, b.y, zFront, b.x, b.y, zBack, a.x, a.y, zFront, b.x, b.y, zBack, a.x, a.y, zBack);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+function buildParts(frame, p, L, H, reps, sx, sy, tex) {
+  const parts = p.parts, Ws = p.size_m[0];
+  // the facade sits SKIN out from the building so openings can recess into it
+  const SKIN = Math.max(0.3, ...parts.openings.map((o) => o.depth)) + 0.1;
+  // texture in wall meters: u wraps every facade repeat, v spans the height
+  tex.repeat.set(1 / (Ws * sx), 1 / H);
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  const photo = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+  const wall = new THREE.Shape([[0, 0], [L, 0], [L, H], [0, H]].map(([x, y]) => new THREE.Vector2(x, y)));
+  const placed = [];
+  for (let i = 0; i < reps; i++) for (const o of parts.openings) {
+    const x0 = Math.max(0.05, (o.x0 + i * Ws) * sx), x1 = Math.min(L - 0.05, (o.x1 + i * Ws) * sx);
+    const y0 = Math.max(0.05, o.y0 * sy), y1 = Math.min(H - 0.05, o.y1 * sy);
+    if (x1 - x0 < 0.3 || y1 - y0 < 0.3) continue;
+    if (placed.some((q) => x0 < q[2] + 0.05 && x1 > q[0] - 0.05 && y0 < q[3] + 0.05 && y1 > q[1] - 0.05)) continue;   // holes can't overlap
+    placed.push([x0, y0, x1, y1]);
+    const pts = openingOutline(o, x0, y0, x1, y1);
+    wall.holes.push(new THREE.Path(pts));
+    const back = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(pts)), photo);       // the window itself, from the photo
+    back.position.z = SKIN - o.depth;
+    const rev = new THREE.Mesh(revealGeometry(pts, SKIN - o.depth, SKIN), partMat(parts.wall_color, 0.8));
+    for (const m of [back, rev]) { m.receiveShadow = true; frame.add(m); }
+  }
+  const face = new THREE.Mesh(new THREE.ShapeGeometry(wall), photo);
+  face.position.z = SKIN;
+  face.receiveShadow = true;
+  frame.add(face);
+  // close the skin at its ends and top
+  const capMat = partMat(parts.wall_color, 0.9);
+  for (const [x, w] of [[0, 0.02], [L, 0.02]]) {
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(w, H, SKIN), capMat);
+    cap.position.set(x, H / 2, SKIN / 2);
+    frame.add(cap);
+  }
+  const top = new THREE.Mesh(new THREE.BoxGeometry(L, 0.05, SKIN), capMat);
+  top.position.set(L / 2, H, SKIN / 2);
+  frame.add(top);
+  // ledges: cornices and string courses along the whole wall
+  for (const l of parts.ledges) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(L + 0.2, l.thickness * sy, l.protrude), partMat(l.color, 1.2));
+    m.position.set(L / 2, l.y * sy, SKIN + l.protrude / 2);
+    m.castShadow = m.receiveShadow = true;
+    frame.add(m);
+  }
+  // columns standing where the photo shows them
+  for (let i = 0; i < reps; i++) for (const c of parts.columns) {
+    const r = Math.min(1.0, c.radius * Math.min(sx, sy));
+    const col = columnMesh(r, (c.top - c.base) * sy, p.rules?.find((x) => x.type === 'colonnade')?.order ?? 'ionic');
+    col.traverse((m) => { if (m.isMesh) m.material = partMat(c.color, 1.25); });   // the photo's color is already shaded
+    col.position.set((c.x + i * Ws) * sx, c.base * sy, SKIN + Math.max(c.protrude, r * 0.6));
+    frame.add(col);
+  }
+}
+
 // relief: base plane this far out from the wall, so recesses (down to -RELIEF_BASE) stay visible
 const RELIEF_BASE = 1.2;
 const reliefCache = new Map();
@@ -427,7 +513,10 @@ async function buildPaintings(def) {
       tex.repeat.set(reps, 1);
       const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
       let face;
-      if (relief) {
+      const parts = p.parts && (p.parts.openings.length || p.parts.columns.length || p.parts.ledges.length);
+      if (settings.relief && parts) {
+        buildParts(frame, p, L, H, reps, sx, sy, tex);
+      } else if (relief) {
         face = new THREE.Mesh(reliefGeometry(relief, L, H, reps), mat);
         face.position.set(0, 0, RELIEF_BASE);
         face.castShadow = true;
@@ -435,12 +524,11 @@ async function buildPaintings(def) {
         face = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
         face.position.set(L / 2, H / 2, 0.06);
       }
-      face.receiveShadow = true;
-      frame.add(face);
+      if (face) { face.receiveShadow = true; frame.add(face); }
     }
     // rules: the building's shape follows what the facade showed
     for (const r of p.rules ?? []) {
-      if (relief && (r.type === 'colonnade' || r.type === 'arcade')) continue;   // the photo's own relief shows them
+      if ((relief || (settings.relief && p.parts)) && (r.type === 'colonnade' || r.type === 'arcade')) continue;   // the photo's own parts show them
       if (r.type === 'colonnade') {
         const rad = Math.min(1.2, r.radius * Math.min(sx, sy)), colH = (r.top - r.base) * sy, out = rad + 0.5;
         for (let i = 0; i < reps; i++) {     // each repeat of the facade gets its own portico
@@ -1032,7 +1120,7 @@ function toggleLabels() { settings.labels = !settings.labels; labelGroup.visible
 const menu = document.getElementById('menu');
 const MENU_ITEMS = [
   ['photoTextures', 'Photo textures', 'floor, walls and furniture colors taken from the photos (off = plain, faster)', togglePhotoTextures],
-  ['relief', '3D facades', 'painted walls get the depth (columns out, windows in) estimated from their photo', toggleRelief],
+  ['relief', '3D facades', 'painted walls get the columns, window recesses and ledges fitted to their photo', toggleRelief],
   ['predicted', 'Predicted furniture', 'pieces the room model added where no photo looked', togglePredicted],
   ['labels', 'Labels', 'class names over objects', toggleLabels],
 ];

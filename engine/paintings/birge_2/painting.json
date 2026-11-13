@@ -21,165 +21,369 @@
       1.0
     ]
   },
+  "parts": {
+    "columns": [],
+    "openings": [
+      {
+        "kind": "door",
+        "x0": 10.32,
+        "y0": 0.16,
+        "x1": 11.18,
+        "y1": 4.26,
+        "arch": false,
+        "depth": 0.23,
+        "inferred": true
+      },
+      {
+        "kind": "door",
+        "x0": 13.12,
+        "y0": 0.16,
+        "x1": 13.98,
+        "y1": 4.26,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "door",
+        "x0": 15.93,
+        "y0": 0.16,
+        "x1": 16.79,
+        "y1": 4.26,
+        "arch": false,
+        "depth": 0.23,
+        "inferred": true
+      },
+      {
+        "kind": "door",
+        "x0": 24.17,
+        "y0": 0.16,
+        "x1": 25.03,
+        "y1": 4.26,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": true
+      },
+      {
+        "kind": "window",
+        "x0": 10.05,
+        "y0": 9.24,
+        "x1": 11.45,
+        "y1": 14.12,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 12.85,
+        "y0": 9.24,
+        "x1": 14.25,
+        "y1": 14.12,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 15.66,
+        "y0": 9.24,
+        "x1": 17.06,
+        "y1": 14.12,
+        "arch": false,
+        "depth": 0.29,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 18.44,
+        "y0": 9.24,
+        "x1": 19.85,
+        "y1": 14.12,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 23.9,
+        "y0": 9.24,
+        "x1": 25.3,
+        "y1": 14.12,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 4.56,
+        "y0": 16.56,
+        "x1": 5.89,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 7.32,
+        "y0": 16.56,
+        "x1": 8.64,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 10.09,
+        "y0": 16.56,
+        "x1": 11.41,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 12.89,
+        "y0": 16.56,
+        "x1": 14.22,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.18,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 15.7,
+        "y0": 16.56,
+        "x1": 17.02,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 18.48,
+        "y0": 16.56,
+        "x1": 19.81,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 21.2,
+        "y0": 16.56,
+        "x1": 22.53,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.15,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 23.93,
+        "y0": 16.56,
+        "x1": 25.26,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.19,
+        "inferred": false
+      },
+      {
+        "kind": "window",
+        "x0": 26.53,
+        "y0": 16.56,
+        "x1": 27.86,
+        "y1": 20.38,
+        "arch": false,
+        "depth": 0.43,
+        "inferred": false
+      }
+    ],
+    "ledges": [
+      {
+        "y": 9.0,
+        "thickness": 0.83,
+        "protrude": 0.5,
+        "color": "#58665d"
+      }
+    ],
+    "wall_color": "#767a79"
+  },
   "elements": [
     {
       "class": "balcony",
-      "score": 0.565,
+      "score": 0.567,
       "box": [
-        153.7,
-        356.0,
-        797.2,
-        428.1
+        156.4,
+        355.8,
+        796.7,
+        427.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.328,
+      "box": [
+        470.0,
+        62.9,
+        510.9,
+        180.0
       ]
     },
     {
       "class": "window",
       "score": 0.321,
       "box": [
-        470.0,
-        63.4,
-        510.8,
-        179.6
+        386.3,
+        65.8,
+        426.9,
+        180.1
       ]
     },
     {
       "class": "window",
-      "score": 0.316,
+      "score": 0.319,
       "box": [
-        302.3,
-        66.3,
-        343.2,
-        182.2
+        302.2,
+        66.5,
+        343.1,
+        181.6
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.313,
+      "box": [
+        553.8,
+        64.2,
+        593.5,
+        179.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.31,
+      "box": [
+        137.2,
+        71.7,
+        176.4,
+        186.7
       ]
     },
     {
       "class": "window",
       "score": 0.309,
       "box": [
-        553.9,
-        64.4,
-        593.7,
-        179.4
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.322,
-      "box": [
-        386.4,
-        65.7,
-        426.8,
-        180.4
+        219.2,
+        67.8,
+        259.6,
+        185.3
       ]
     },
     {
       "class": "window",
       "score": 0.305,
       "box": [
-        219.5,
-        68.2,
-        259.8,
-        185.3
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.299,
-      "box": [
-        137.8,
-        71.8,
-        176.7,
-        186.2
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.301,
-      "box": [
-        636.1,
-        65.5,
+        636.0,
+        65.2,
         675.9,
-        179.1
+        179.0
       ]
     },
     {
       "class": "window",
-      "score": 0.293,
+      "score": 0.296,
       "box": [
         717.6,
-        67.1,
-        756.7,
-        181.4
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.269,
-      "box": [
-        796.1,
-        69.6,
-        835.2,
-        182.4
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.262,
-      "box": [
-        385.6,
-        254.9,
-        427.4,
-        363.4
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.258,
-      "box": [
-        554.1,
-        254.9,
-        595.8,
-        400.9
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.256,
-      "box": [
-        469.0,
-        253.9,
-        513.4,
-        400.6
-      ]
-    },
-    {
-      "class": "window",
-      "score": 0.257,
-      "box": [
-        301.2,
-        255.8,
-        343.5,
-        365.4
+        66.7,
+        756.9,
+        181.3
       ]
     },
     {
       "class": "door",
-      "score": 0.252,
+      "score": 0.283,
       "box": [
-        401.5,
-        550.3,
-        427.1,
+        401.3,
+        550.1,
+        427.2,
         673.3
       ]
     },
     {
-      "class": "column",
-      "score": 0.253,
+      "class": "window",
+      "score": 0.276,
       "box": [
-        340.5,
-        441.4,
-        385.1,
-        676.1
+        796.4,
+        68.9,
+        835.5,
+        182.3
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.268,
+      "box": [
+        385.5,
+        254.6,
+        427.6,
+        363.1
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.264,
+      "box": [
+        554.1,
+        254.5,
+        596.0,
+        400.7
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.261,
+      "box": [
+        301.2,
+        255.4,
+        343.5,
+        364.8
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.26,
+      "box": [
+        469.0,
+        253.9,
+        513.3,
+        400.8
+      ]
+    },
+    {
+      "class": "column",
+      "score": 0.256,
+      "box": [
+        340.3,
+        440.9,
+        384.9,
+        675.2
+      ]
+    },
+    {
+      "class": "window",
+      "score": 0.252,
+      "box": [
+        718.2,
+        254.1,
+        759.0,
+        401.5
       ]
     }
   ],

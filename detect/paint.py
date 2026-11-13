@@ -176,6 +176,34 @@ class Models:
         return cls._clip
 
 
+def detect_tiled(facade_bgr, threshold=0.25):
+    """Grounding DINO resizes its input to ~800 px, so on a long facade every window is a
+    few pixels. Run it on overlapping tiles about 1.6x as wide as the facade is tall,
+    then merge duplicates (same class, IoU > 0.5) across tiles."""
+    Hh, Wh = facade_bgr.shape[:2]
+    tw = int(min(Wh, 1.6 * Hh))
+    xs = [0] if tw >= Wh else list(range(0, Wh - tw, int(tw * 0.75))) + [Wh - tw]
+    dets = []
+    for x0 in xs:
+        for d in detect_elements(facade_bgr[:, x0:x0 + tw], threshold):
+            b = d["box"]
+            d["box"] = [b[0] + x0, b[1], b[2] + x0, b[3]]
+            dets.append(d)
+    dets.sort(key=lambda d: -d["score"])
+    keep = []
+    for d in dets:
+        if all(not (k["class"] == d["class"] and box_iou(k["box"], d["box"]) > 0.5) for k in keep):
+            keep.append(d)
+    return keep
+
+
+def box_iou(a, b):
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    return inter / ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter + 1e-9)
+
+
 def detect_elements(facade_bgr, threshold=0.25):
     from PIL import Image
     proc, model, dev, torch = Models.dino()
@@ -217,7 +245,7 @@ def facade_relief(img, H, Wp, Hp, ppm):
     local = cv2.GaussianBlur(R * w, (0, 0), sig) / np.maximum(cv2.GaussianBlur(w, (0, 0), sig), 1e-3)
     rel = np.where(mask, 0.0, local - R)
     rel = cv2.GaussianBlur(rel, (0, 0), 0.6 * ppm / RELIEF_PX_PER_M)
-    return np.clip(rel, *RELIEF_RANGE), float(mask.mean())
+    return np.clip(rel, *RELIEF_RANGE), mask
 
 
 def clip_choice(images, options):
@@ -254,6 +282,164 @@ ROOFS = {
     "sky": "blue sky",
     "flat": "the flat top edge of a building against the sky",
 }
+
+
+# ------------------------------------------------------------------ fitting architectural parts
+
+def _hex(bgr):
+    b, g, r = [int(v) for v in bgr]
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _cluster(vals, tol):
+    """1-D clustering: sorted values split where the gap exceeds tol. Returns labels, centers."""
+    order = np.argsort(vals)
+    labels = np.zeros(len(vals), int)
+    centers, cur = [], [order[0]]
+    for a, b in zip(order[:-1], order[1:]):
+        if vals[b] - vals[a] > tol:
+            centers.append(float(np.median([vals[i] for i in cur])))
+            cur = []
+        cur.append(b)
+        labels[b] = len(centers)
+    centers.append(float(np.median([vals[i] for i in cur])))
+    return labels, centers
+
+
+def fit_parts(dets, tex, relief, mask, W_m, H_m, ppm_det, ppm):
+    """Turn detections + depth into concrete parts, in facade meters (x from the left end,
+    y up from the ground):
+      openings  windows / doors / arched openings, snapped into a grid of rows and columns
+                (facades repeat); grid cells the detector missed are filled where the photo
+                is dark like glass; recess depth = how far the depth map sinks inside vs around
+      columns   tall narrow detections; a regular run fills gaps; protrusion from the depth
+      ledges    cornices / string courses: rows where the depth sticks out all along the wall
+    tex / relief / mask are the rectified facade at `ppm` px/m; detections at `ppm_det`."""
+    gray = cv2.cvtColor(tex, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    wall_gray = float(np.median(gray[~mask])) if (~mask).any() else float(np.median(gray))
+    wall_color = np.median(tex[~mask], 0) if (~mask).any() else np.median(tex.reshape(-1, 3), 0)
+    M = lambda b: (b[0] / ppm_det, H_m - b[3] / ppm_det, b[2] / ppm_det, H_m - b[1] / ppm_det)  # noqa: E731
+    P = lambda x, y: (int(np.clip(x * ppm, 0, tex.shape[1] - 1)), int(np.clip((H_m - y) * ppm, 0, tex.shape[0] - 1)))  # noqa: E731
+
+    def region(x0, y0, x1, y1, arr):
+        (a, b), (c, d) = P(x0, y1), P(x1, y0)
+        return arr[b:max(b + 1, d), a:max(a + 1, c)]
+
+    # --- columns
+    cols = []
+    for d in dets:
+        if d["class"] != "column":
+            continue
+        x0, y0, x1, y1 = M(d["box"])
+        if (y1 - y0) > 2.2 * (x1 - x0) and (y1 - y0) > 0.25 * H_m:
+            cols.append((x0, y0, x1, y1))
+    columns = []
+    if len(cols) >= 2:
+        C = np.array(cols)
+        base, top = float(np.median(C[:, 1])), float(np.median(C[:, 3]))
+        C = C[(np.abs(C[:, 1] - base) < 1.5) & (np.abs(C[:, 3] - top) < 1.5)]
+        diam = float(np.median(C[:, 2] - C[:, 0])) if len(C) else 0
+        xs = sorted(((C[:, 0] + C[:, 2]) / 2).tolist())
+        if len(xs) >= 2 and min(np.diff(xs)) <= 8 * diam:
+            step = float(np.median(np.diff(xs)))
+            run = [xs[0]]
+            for x in xs[1:]:                    # fill a gap only if it's ~ a whole number of steps
+                k = (x - run[-1]) / step
+                if round(k) >= 2 and abs(k - round(k)) < 0.25:
+                    run += [run[-1] + j * (x - run[-1]) / round(k) for j in range(1, int(round(k)))]
+                run.append(x)
+            band = lambda x: region(x - diam / 2, base, x + diam / 2, top, relief)  # noqa: E731
+            vegb = lambda x: region(x - diam / 2, base, x + diam / 2, top, mask)  # noqa: E731
+            strength = np.median([np.median(band(x)) for x in xs])
+            win_boxes = [M(d["box"]) for d in dets if d["class"] in ("window", "door")]
+            for direction in (-1, 1):           # extend the run while the photo still shows a column
+                x = run[0] if direction < 0 else run[-1]
+                while strength > 0 and 0.5 * diam < x + direction * step < W_m - 0.5 * diam:
+                    x += direction * step
+                    if (np.median(band(x)) < 0.5 * strength or vegb(x).mean() > 0.3
+                            or any(b[0] < x < b[2] and b[1] < (base + top) / 2 < b[3] for b in win_boxes)):
+                        break
+                    run.insert(0, x) if direction < 0 else run.append(x)
+            radius = float(np.clip(0.8 * diam / 2, 0.15, 0.8))   # boxes include the wider capital
+            protrude = float(np.clip(np.median([np.median(band(x)) for x in run]), radius * 0.6, 2.5 * radius))
+            col_color = np.median(np.concatenate([region(x - diam / 4, base, x + diam / 4, top, tex).reshape(-1, 3) for x in run]), 0)
+            columns = [{"x": round(x, 2), "base": round(base, 2), "top": round(top, 2), "radius": round(radius, 2),
+                        "protrude": round(protrude, 2), "color": _hex(col_color)} for x in run]
+
+    # --- openings
+    ops = []
+    for d in dets:
+        if d["class"] not in ("window", "door", "arch"):
+            continue
+        x0, y0, x1, y1 = M(d["box"])
+        w, h = x1 - x0, y1 - y0
+        if w < 0.4 or h < 0.5 or w * h > 0.25 * W_m * H_m or w > 0.4 * W_m:
+            continue
+        if any(abs(c["x"] - (x0 + x1) / 2) < 0.6 * c["radius"] and w < 2.5 * c["radius"] for c in columns):
+            continue                            # the column itself, not a window
+        ops.append({"kind": d["class"], "box": [x0, y0, x1, y1], "score": d["score"]})
+    ops.sort(key=lambda o: -o["score"])
+    kept = []
+    for o in ops:                               # arches win over windows inside them
+        if all(box_iou(o["box"], k["box"]) < 0.4 for k in kept):
+            kept.append(o)
+    openings = []
+    if kept:
+        B = np.array([o["box"] for o in kept])
+        hgt = float(np.median(B[:, 3] - B[:, 1]))
+        wid = float(np.median(B[:, 2] - B[:, 0]))
+        rlab, rows = _cluster(((B[:, 1] + B[:, 3]) / 2).tolist(), 0.5 * hgt)
+        clab, colsx = _cluster(((B[:, 0] + B[:, 2]) / 2).tolist(), 0.35 * wid)
+        grid = {}
+        for i, o in enumerate(kept):
+            grid[(rlab[i], clab[i])] = o
+        row_box = {r: (float(np.median([B[i, 1] for i in range(len(B)) if rlab[i] == r])),
+                       float(np.median([B[i, 3] for i in range(len(B)) if rlab[i] == r])),
+                       float(np.median([B[i, 2] - B[i, 0] for i in range(len(B)) if rlab[i] == r])),
+                       max(set(kept[i]["kind"] for i in range(len(B)) if rlab[i] == r),
+                           key=lambda k: sum(1 for i in range(len(B)) if rlab[i] == r and kept[i]["kind"] == k)))
+                   for r in range(len(rows))}
+        col_count = {c: int(np.sum(clab == c)) for c in range(len(colsx))}
+        for r, (y0, y1, w, kind) in row_box.items():
+            for c, xc in enumerate(colsx):
+                x0, x1 = xc - w / 2, xc + w / 2
+                inferred = (r, c) not in grid
+                if inferred:
+                    if col_count[c] < 2 or x0 < 0 or x1 > W_m:
+                        continue
+                    if any(abs(cc["x"] - xc) < cc["radius"] + w / 2 for cc in columns):
+                        continue
+                    inside = region(x0, y0, x1, y1, gray)
+                    msk = region(x0, y0, x1, y1, mask)
+                    if msk.mean() > 0.15 or np.median(inside) > 0.85 * wall_gray:
+                        continue                # not dark like a window there: leave the wall
+                rin = np.median(region(x0, y0, x1, y1, relief))
+                ring = np.concatenate([region(x0 - 0.4, y0, x0, y1, relief).ravel(), region(x1, y0, x1 + 0.4, y1, relief).ravel(),
+                                       region(x0, y1, x1, y1 + 0.4, relief).ravel()])
+                depth = float(np.clip((np.median(ring) if ring.size else 0) - rin, 0.15, 0.6))
+                openings.append({"kind": kind, "x0": round(x0, 2), "y0": round(y0, 2), "x1": round(x1, 2), "y1": round(y1, 2),
+                                 "arch": kind == "arch", "depth": round(depth, 2), "inferred": inferred})
+
+    # --- ledges: rows where the depth sticks out along most of the wall
+    ledges = []
+    prof = np.array([np.median(row[~m]) if (~m).sum() > 0.3 * len(row) else 0.0 for row, m in zip(relief, mask)])
+    prof = cv2.GaussianBlur(prof.reshape(-1, 1).astype(np.float32), (0, 0), max(1.0, 0.15 * ppm)).ravel()
+    for i in range(1, len(prof) - 1):
+        if prof[i] >= 0.12 and prof[i] >= prof[i - 1] and prof[i] >= prof[i + 1]:
+            half = prof[i] / 2
+            a, b = i, i
+            while a > 0 and prof[a] > half:
+                a -= 1
+            while b < len(prof) - 1 and prof[b] > half:
+                b += 1
+            y = H_m - i / ppm
+            t = float(np.clip((b - a) / ppm, 0.2, 1.2))
+            if all(abs(l["y"] - y) > 1.0 for l in ledges):
+                band = tex[a:b + 1].reshape(-1, 3)
+                ledges.append({"y": round(y, 2), "thickness": round(t, 2), "protrude": round(float(np.clip(prof[i], 0.1, 0.8)), 2),
+                               "color": _hex(np.median(band, 0))})
+    ledges = sorted(ledges, key=lambda l: -l["protrude"])[:4]
+    return {"columns": columns, "openings": openings, "ledges": ledges, "wall_color": _hex(wall_color)}
 
 
 def make_rules(dets, facade, W_m, H_m, ppm, roof_strip, facade_hi=None, ppm_hi=None):
@@ -351,16 +537,21 @@ def add(args):
     roof_strip = img[max(0, top_y - int(0.25 * h_quad)):max(1, top_y + int(0.03 * h_quad)), x0:x1]
 
     print(f"{block['name']} wall {k0}-{k1}: rectified {Wp}x{Hp} px")
-    relief, masked = facade_relief(img, H, Wp, Hp, ppm)
+    relief, veg_mask = facade_relief(img, H, Wp, Hp, ppm)
     print(f"  relief from depth: p5 {np.percentile(relief, 5):+.2f} m, p95 {np.percentile(relief, 95):+.2f} m "
-          f"({masked:.0%} masked as vegetation/sky)")
-    dets = detect_elements(facade)
+          f"({veg_mask.mean():.0%} masked as vegetation/sky)")
+    dets_hi = detect_tiled(facade_hi)
+    k_hi = ppm / ppm_hi
+    dets = [{**d, "box": [round(v * k_hi, 1) for v in d["box"]]} for d in dets_hi]   # in facade (ppm) pixels
     by = {}
     for d in dets:
         by[d["class"]] = by.get(d["class"], 0) + 1
     print(f"  elements: {by}")
     style, style_p = clip_choice([facade], STYLES)
     rules, info = make_rules(dets, facade, W_m, H_m, ppm, roof_strip, facade_hi, ppm_hi)
+    parts = fit_parts(dets, facade, relief, veg_mask, W_m, H_m, ppm, ppm)
+    print(f"  parts: {len(parts['columns'])} columns, {len(parts['openings'])} openings "
+          f"({sum(o['inferred'] for o in parts['openings'])} inferred from the grid), {len(parts['ledges'])} ledges")
     info["style"] = style_p
     print(f"  style: {style}  rules: {[r['type'] + (' (' + r['order'] + ')' if r['type'] == 'colonnade' else '') for r in rules] or 'none'}")
 
@@ -381,10 +572,21 @@ def add(args):
         x1_, y1_, x2_, y2_ = map(int, d["box"])
         cv2.rectangle(vis, (x1_, y1_), (x2_, y2_), (0, 0, 255) if d["class"] == "column" else (255, 120, 0), 2)
         cv2.putText(vis, d["class"], (x1_, y1_ + 14), 0, 0.5, (0, 255, 255), 1)
+    for o in parts["openings"]:
+        a, b = int(o["x0"] * ppm), int((H_m - o["y1"]) * ppm)
+        c, d = int(o["x1"] * ppm), int((H_m - o["y0"]) * ppm)
+        cv2.rectangle(vis, (a, b), (c, d), (0, 200, 255) if o["inferred"] else (0, 255, 0), 1)
+    for col in parts["columns"]:
+        x = int(col["x"] * ppm)
+        cv2.line(vis, (x, int((H_m - col["top"]) * ppm)), (x, int((H_m - col["base"]) * ppm)), (255, 0, 255), 2)
+    for l in parts["ledges"]:
+        y = int((H_m - l["y"]) * ppm)
+        cv2.line(vis, (0, y), (vis.shape[1], y), (255, 255, 0), 1)
     cv2.imwrite(str(out / "elements.jpg"), vis)
     painting = {"id": name, "building": block["name"], "size_m": [round(W_m, 2), round(H_m, 2)],
                 "texture": f"paintings/{name}/facade.jpg", "style": style, "rules": rules,
                 "relief": {"image": f"paintings/{name}/relief.png", "range": list(RELIEF_RANGE)},
+                "parts": parts,
                 "elements": dets, "analysis": info,
                 "source": {"photo": pathlib.Path(args.photo).name, "corners": src.tolist(), "credit": args.credit}}
     (out / "painting.json").write_text(json.dumps(painting, indent=2))

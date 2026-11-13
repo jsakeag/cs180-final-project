@@ -169,11 +169,18 @@ People photograph campus buildings and say roughly where on the map they were. E
    - a 0.5 m median filter cleans it
    - it fades to flat at the wall's ends and is capped at ±1 m
 
-   The result is saved as `relief.png`. The engine displaces the facade mesh with it (6 samples per meter), so each building gets its own columns and recesses rather than stock ones. The procedural colonnade and arcade are then skipped, since the photo already shows them; the roof rule still applies. The Esc menu toggles "3D facades". It works best on head-on, uncluttered photos (Doe's north face); small or bush-covered photos come out lumpy.
-4. **Read the facade.**
+   The result is saved as `relief.png`. On its own, a height field only gives soft "terrain" (it can't make a free-standing column or a sharp ledge), so the relief mainly supplies depths for the next step, plus a fallback mesh for facades where no parts are found.
+4. **Architectural parts fitted to the photo** (`fit_parts`, often called inverse procedural modeling). Grounding DINO runs on the sharp 80 px/m rectification in overlapping tiles, since a long facade squeezed to its ~800 px input makes windows a few pixels wide. Then:
+   - **Openings** (windows, doors, arches) snap into rows and columns, since facades repeat. Grid cells the detector missed are filled only where the photo is dark like glass and not covered by a tree. Each opening's recess depth = depth around it − depth inside, capped at 15–60 cm.
+   - **Columns** are tall, narrow detections. A run fills only gaps that are whole multiples of the median spacing, and extends only while the depth still stands out, the area isn't vegetation and no window is in the way. Protrusion comes from the depth.
+   - **Ledges** (cornices, string courses) are rows where the depth sticks out along most of the wall.
+   - Colors come from the photo.
+
+   The engine builds these concretely: a wall surface with real holes, recesses with the photo on their back faces, turned columns with capitals, and ledges. The stock colonnade and arcade rules are skipped, and the roof rule still applies. The Esc menu toggles "3D facades".
+5. **Read the facade (style).**
    - Grounding DINO (open-vocabulary detector) finds columns, arches, windows, doors, pediments and balconies. YOLO-World found almost nothing on facades.
    - CLIP reads the column order (Doric, Ionic or Corinthian) from capitals cut out of a sharper rectification at 80 px per meter, the overall style, and whether a red tile roof shows above the facade.
-5. **Rules** (the engine builds them procedurally; no 3D model files needed):
+6. **Rules** (the engine builds them procedurally; no 3D model files needed):
 
    | facade shows | building gets |
    |---|---|
@@ -182,7 +189,7 @@ People photograph campus buildings and say roughly where on the map they were. E
    | red tile roof | a terracotta hip roof, or a low tile cap that follows the footprint if it isn't rectangular |
 
    Columns found at a regular spacing fill in the gaps the detector missed.
-6. **Imagine:** `paint.py apply --painting dwinelle_plaza --building "Wheeler Hall" --facing N`, or click a facade and a wall in the UI. The painting's rules come with it.
+7. **Imagine:** `paint.py apply --painting dwinelle_plaza --building "Wheeler Hall" --facing N`, or click a facade and a wall in the UI. The painting's rules come with it.
 
 ```bash
 .venv/bin/python detect/paint.py add --photo photo.jpg --corners "x,y x,y x,y x,y" --near X Z    # TL TR BR BL
