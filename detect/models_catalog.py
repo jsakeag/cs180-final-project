@@ -153,6 +153,14 @@ class Clip:
             outs.append(self.torch.nn.functional.normalize(e, dim=-1).cpu().numpy())
         return np.concatenate(outs) if outs else np.zeros((0, 512), np.float32)
 
+    def embed_text(self, texts):
+        inp = self.proc(text=list(texts), return_tensors="pt", padding=True).to(self.dev)
+        with self.torch.no_grad():
+            e = self.model.get_text_features(**inp)
+        if not isinstance(e, self.torch.Tensor):
+            e = e.pooler_output
+        return self.torch.nn.functional.normalize(e, dim=-1).cpu().numpy()
+
 
 def _open_rgb(path):
     """Thumbnails with transparency (Poly Haven) go on white, like catalog photos."""
@@ -331,17 +339,34 @@ def match(scene_path, top_k=5, size_weight=0.2, refit=True):
 
     clip = Clip()
     credits = {}
+    style = None   # mean crop embedding of the seen objects: predicted ones should look like they belong
+    seen_crops = []
+    for o in scene["objects"]:
+        src = o.get("source", {})
+        if src.get("box") and src.get("image"):
+            img = Image.open(REPO / src["image"]).convert("RGB")
+            seen_crops.append(img.crop(tuple(src["box"])))
+    if seen_crops:
+        style = clip.embed(seen_crops).mean(0)
+        style /= np.linalg.norm(style)
     for o in scene["objects"]:
         group = next((g for g in MATCH_GROUPS if o["class"] in g), (o["class"],))
         idx = [i for cls in group for i in by_class.get(cls, [])]
         src = o.get("source", {})
-        if not idx or not src.get("box") or not src.get("image"):
+        if not idx:
             continue
-        img = Image.open(REPO / src["image"]).convert("RGB")
-        x1, y1, x2, y2 = src["box"]
-        pad = 0.05 * max(x2 - x1, y2 - y1)
-        crop = img.crop((max(0, x1 - pad), max(0, y1 - pad), min(img.width, x2 + pad), min(img.height, y2 + pad)))
-        q = clip.embed([crop])[0]
+        if src.get("box") and src.get("image"):
+            img = Image.open(REPO / src["image"]).convert("RGB")
+            x1, y1, x2, y2 = src["box"]
+            pad = 0.05 * max(x2 - x1, y2 - y1)
+            crop = img.crop((max(0, x1 - pad), max(0, y1 - pad), min(img.width, x2 + pad), min(img.height, y2 + pad)))
+            q = clip.embed([crop])[0]
+        else:  # predicted (never photographed): match on the class name + style of what was seen
+            kind = "table " if src.get("on_top_of") else ""      # a lamp on a nightstand is a table lamp
+            q = clip.embed_text([f"a photo of a {kind}{o['class'].replace('_', ' ')}"])[0]
+            if style is not None:
+                q = q / np.linalg.norm(q) + 0.5 * style
+                q /= np.linalg.norm(q)
         # drop candidates whose real size is far from anything plausible for the class
         priors = [SIZE_PRIORS[g] for g in group if g in SIZE_PRIORS]
         if priors:

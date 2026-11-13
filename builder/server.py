@@ -5,7 +5,7 @@ usage (from the repo root):
 
 Serves the builder page at /, the engine at /engine/, and runs
   [prepare | write schematic + registration] -> detect.py --depth -> place.py
-  -> models_catalog.py match -> (SUN only) evaluate
+  -> complete.py (full room + predicted furniture) -> models_catalog.py match -> (SUN only) evaluate
 as a background job per request.
 """
 import json, pathlib, subprocess, sys, threading, time, uuid
@@ -111,7 +111,7 @@ def _run_job(job_id, steps, scene_rel, gt_path, work):
             pred = json.loads((ENGINE / scene_rel).read_text())["objects"]
             r = evaluate.score(pred, json.loads(gt_path.read_text()))
             j["metrics"] = {"summary": evaluate.summarize([r]), "missed": r["missed"], "false_pos": r["false_pos"]}
-        j["viz"] = [f"/work/{work.name}/{f.name}" for f in sorted(work.glob("*_placed.jpg")) + sorted(work.glob("*_plan.png"))]
+        j["viz"] = [f"/work/{work.name}/{f.name}" for f in sorted(work.glob("*_placed.jpg")) + sorted(work.glob("*_plan.png")) + sorted(work.glob("*_room.png"))]
         j["stage"], j["done"] = "done", True
         j["scene_url"] = f"/engine/index.html?scene={scene_rel}"
     except Exception as e:  # noqa: BLE001
@@ -123,6 +123,7 @@ def _pipeline_steps(images, reg_path, schematic_path, scene_out, work, match_mod
         ("detecting objects + depth", [PY, "detect/detect.py", *map(str, images), "-o", str(work / "detections.json"), "--depth", "--viz"]),
         ("placing on the floor plan", [PY, "detect/place.py", "--detections", str(work / "detections.json"),
                                        "--reg", str(reg_path), "--scene", str(schematic_path), "-o", str(scene_out), "--viz"]),
+        ("completing the room (shell + unseen furniture)", [PY, "detect/complete.py", str(scene_out), "--viz", str(work)]),
     ]
     if match_models:
         steps.append(("matching real 3D models", [PY, "detect/models_catalog.py", "match", str(scene_out)]))
@@ -163,6 +164,7 @@ def run_upload():
         "name": job, "units": "meters",
         "spawn": {"position": [W / 2, 0, D - 0.5], "yaw_deg": 0},
         "schematic": {"floor": {"min": [0, 0], "max": [W, D]}, "wall_height": H,
+                      "room": {"given": True, "corners": corners, "size": [W, D]},   # measured: no guessing
                       "walls": [{"from": corners[i], "to": corners[(i + 1) % 4], "thickness": 0.12} for i in range(4)]},
         "objects": [],
     }
@@ -190,4 +192,5 @@ def job_status(job_id):
 
 
 if __name__ == "__main__":
-    app.run(port=5180, debug=False, threaded=True)
+    import os
+    app.run(port=int(os.environ.get("PORT", 5180)), debug=False, threaded=True)

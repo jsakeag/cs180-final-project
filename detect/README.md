@@ -72,3 +72,26 @@ Baseline, 60 bedroom/living-room frames (perfect registration, 169 floor-standin
 | median facing error | 21° |
 
 Coordinate notes (learned the hard way): SUN annotation frame is gravity-aligned, X right, **Y down**, Z forward; `Ymin`/`Ymax` are not consistently bottom/top (bottom = max); the layout's floor height can be ~10 cm off, so the floor is taken from furniture bottoms when lower.
+
+## Completing the room
+
+A photo shows part of a room. `complete.py` turns a placed scene into a whole room:
+
+1. **Room type**: the dataset label, else CLIP zero-shot on the photos (bedroom / living room / office / dining room). Outdoor or other photos are left alone.
+2. **Shell**: a rectangle aligned with the walls the camera saw (SUN layouts are view polygons, so the edges that run through the camera are ignored). Sides backed by an observed wall stay put. Unseen sides, always including the one behind the camera, are pushed out to a typical room size for the type (bedroom 3.4 × 4.0 m, living room 4.2 × 5.4 m). Uploads use the measured room as is.
+3. **Unseen furniture**: `room_prior.py` learns a small model from about 1,500 SUN RGB-D annotations (evaluation frames excluded). Per room type it records:
+   - per-m² rate of each class over in-view floor
+   - how many a room holds
+   - P(against a wall)
+   - median size
+   - where each class sits relative to every other class, as samples in the anchor's frame (offset + relative facing)
+
+   Expected count in the unseen floor = rate × unseen area, capped. A class most rooms of that type have (a bedroom's bed) is always added if missing. Each object goes to the spot that scores best under the wall term and a kernel density of the learned relations. The spot must be out of every camera's view (or the photo would have shown it), must not overlap anything, and must not be on top of the camera. Seats face the table or desk they're at; a bed's front is its foot end.
+
+```bash
+.venv/bin/python detect/room_prior.py fetch --per-type 400   # ~10 KB/frame, annotations only
+.venv/bin/python detect/room_prior.py learn                  # -> detect/data/room_prior.json
+.venv/bin/python detect/complete.py engine/scenes/<scene>.json --viz detect/out
+```
+
+Predicted objects have `source.placed_by = "predicted"`. They get models by CLIP text ("a photo of a sofa") plus the average look of the photographed furniture. The engine labels them "(predicted)", and **O** hides or shows them. `evaluate.py` ignores them, because SUN ground truth only covers what the camera saw. Learned relations look right (nightstand about 1 m beside the bed at the headboard; coffee table about 1 m in front of the sofa; chair about 0.5 m in front of the desk). Whole-room predictions can't be scored against SUN, which has no full-room ground truth.

@@ -33,7 +33,8 @@ def group_of(cls):
 
 def score(pred, gt):
     gt = [g for g in gt if g["class"] in FLOOR_CLASSES]
-    pred = [p for p in pred if p["class"] in FLOOR_CLASSES]
+    pred = [p for p in pred if p["class"] in FLOOR_CLASSES
+            and p.get("source", {}).get("placed_by") != "predicted"]   # GT only covers what the camera saw
     pairs = []
     for i, p in enumerate(pred):
         for j, g in enumerate(gt):

@@ -123,10 +123,16 @@ function buildScene(def) {
   const fmin = sch.floor?.min ?? [-10, -10];
   const fmax = sch.floor?.max ?? [10, 10];
   const fw = fmax[0] - fmin[0], fd = fmax[1] - fmin[1];
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(fw, fd),
-    new THREE.MeshStandardMaterial({ color: 0x8a8070 })
-  );
+  // floor: the room polygon when given (rooms needn't be axis aligned), else the min/max box
+  let floorGeom;
+  const polys = sch.floor?.polygons ?? (sch.floor?.polygon ? [sch.floor.polygon] : null);
+  if (polys) {   // room + attached spaces (hallways): one shape each
+    floorGeom = new THREE.ShapeGeometry(polys.map((poly) =>
+      new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x - (fmin[0] + fw / 2), -(z - (fmin[1] + fd / 2)))))));
+  } else {
+    floorGeom = new THREE.PlaneGeometry(fw, fd);
+  }
+  const floor = new THREE.Mesh(floorGeom, new THREE.MeshStandardMaterial({ color: 0x8a8070 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(fmin[0] + fw / 2, 0, fmin[1] + fd / 2);
   floor.receiveShadow = true;
@@ -184,7 +190,9 @@ function buildScene(def) {
     }
 
     const conf = o.source?.confidence;
-    const label = makeLabel(conf != null ? `${o.class} ${conf.toFixed(2)}` : o.class);
+    const predicted = o.source?.placed_by === 'predicted';
+    const label = makeLabel(predicted ? `${o.class} (predicted)` : conf != null ? `${o.class} ${conf.toFixed(2)}` : o.class);
+    holder.userData.predicted = label.userData.predicted = predicted;
     label.position.set(o.position[0], (o.position[1] ?? 0) + o.size[1] + 0.25, o.position[2]);
     labelGroup.add(label);
   }
@@ -233,6 +241,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyL') labelGroup.visible = !labelGroup.visible;
   if (e.code === 'KeyG' && grid) grid.visible = !grid.visible;
   if (e.code === 'KeyR') respawn();
+  if (e.code === 'KeyO') togglePredicted();
   if (e.code === 'KeyP') cyclePhotoCam();
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code) && photoCam) exitPhotoCam();
   if (e.code === 'KeyV') { thirdPerson = !thirdPerson; avatar.visible = thirdPerson; }
@@ -349,8 +358,20 @@ function updateCamera() {
   }
 }
 
+// O: hide / show furniture the room model predicted for the parts no photo saw
+let showPredicted = true;
+function togglePredicted() {
+  showPredicted = !showPredicted;
+  for (const g of [objectGroup, labelGroup]) for (const n of g.children) if (n.userData.predicted) n.visible = showPredicted;
+  const hidden = new Set(sceneDef.objects.filter((o) => o.source?.placed_by === 'predicted').map((o) => `obj:${o.id}`));
+  colliders = buildColliders(sceneDef).filter((c) => showPredicted || !hidden.has(c.id));
+  debugGroup.clear();
+  for (const c of colliders) debugGroup.add(colliderOutline(c));
+}
+
 // ---------- HUD ----------
 const hud = document.getElementById('hud');
+const nPredicted = () => (sceneDef?.objects ?? []).filter((o) => o.source?.placed_by === 'predicted').length;
 let fpsAcc = 0, fpsFrames = 0, fps = 0;
 function updateHud(dt) {
   fpsAcc += dt; fpsFrames++;
@@ -362,6 +383,7 @@ function updateHud(dt) {
     `yaw    ${deg.toFixed(0)}°   speed ${Math.hypot(player.vx, player.vz).toFixed(2)} m/s\n` +
     `view   ${photoCam ? `photo ${photoCam.image.split('/').pop()} (WASD to leave)` : thirdPerson ? `3rd (${thirdDist.toFixed(1)} m)` : `1st (fov ${camera.fov.toFixed(0)})`}\n` +
     `touch  ${player.hits.join(' ') || '-'}\n` +
+    (nPredicted() ? `room   ${sceneDef.schematic.room?.scene_type ?? ''} · ${nPredicted()} predicted ${showPredicted ? '(O hides)' : '(hidden, O shows)'}\n` : '') +
     (models.total ? `models ${models.loaded}/${models.total}${models.failed ? ` (${models.failed} failed)` : models.loaded < models.total ? ' loading...' : ''}\n` : '') +
     `fps    ${fps.toFixed(0)}`;
 }
