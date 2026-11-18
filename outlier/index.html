@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outlier</title>
+<meta name="description" content="Snap the least obvious thing that fits.">
+<meta name="theme-color" content="#f3efe6">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><g fill="#151515"><circle cx="5" cy="5" r="2.6"/><circle cx="12" cy="5" r="2.6"/><circle cx="5" cy="12" r="2.6"/><circle cx="12" cy="12" r="2.6"/></g><circle cx="21" cy="21" r="3.4" fill="#ff4f1f"/></svg>
+      Outlier
+    </div>
+    <div class="steps" id="steps"></div>
+    <div class="score-chip" id="chip">0</div>
+  </header>
+
+  <section id="home">
+    <p class="big">Snap the least obvious thing that fits.</p>
+    <p class="sub">3 prompts. 3 minutes each. Obvious answers score low.</p>
+    <div class="grow"></div>
+    <div class="load" id="load"><span id="loadTxt">Loading the object recognizer…</span><div class="track"><i id="loadBar"></i></div></div>
+    <button class="cta hot" id="go">Play</button>
+  </section>
+
+  <section id="round" hidden>
+    <p class="big" id="prompt"></p>
+    <div class="timer" id="timer"><div class="track"><i id="bar"></i></div><div class="secs" id="secs"></div></div>
+    <label class="snap" id="snap">
+      <span class="plus" id="plus">+</span>
+      <img id="pv" alt="" hidden>
+      <input type="file" id="file" accept="image/*" aria-label="Take or choose a photo">
+      <div class="busy" id="busy" hidden><span>Looking…</span></div>
+    </label>
+    <div class="manual" id="manual" hidden><input id="mIn" placeholder="What is it?" maxlength="40"></div>
+    <div class="err" id="err"></div>
+    <button class="cta" id="send" disabled>Submit</button>
+    <button class="link" id="skip">Skip</button>
+  </section>
+
+  <section id="result" hidden>
+    <div class="res-top">
+      <img id="rImg" alt="">
+      <div><div class="q" id="rQ"></div><div class="label" id="rLabel"></div></div>
+    </div>
+    <div class="num" id="rNum"></div>
+    <svg class="field" id="field" viewBox="0 0 520 120" aria-hidden="true"></svg>
+    <div class="legend"><span>Obvious</span><span>Outlier</span></div>
+    <div class="herd" id="herd"></div>
+    <div class="fix" id="fix" hidden></div>
+    <div class="grow"></div>
+    <button class="cta" id="next">Next</button>
+  </section>
+
+  <section id="end" hidden>
+    <div class="q">Today</div>
+    <div class="num" id="eNum"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="grow"></div>
+    <button class="cta" id="copy">Copy result</button>
+    <div class="toast" id="toast"></div>
+    <button class="link" id="reset">Play again</button>
+  </section>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/recognizer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
