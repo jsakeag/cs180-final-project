@@ -25,7 +25,7 @@ Camera capture on phones needs HTTPS, which all of those provide.
 | Does it fit the prompt? | Known answer lists in `js/data.js`; otherwise the photo must match this prompt better than most other prompts | Free |
 | How rare is it? | Precomputed answer shares in `js/data.js`, scored as surprisal (−log₂ share), scaled so an unlisted answer = 100 | Free |
 
-First visit: the browser downloads the model weights once (a large download, cached afterwards) and embeds the ~700 object
+First visit: the browser downloads the 8-bit model weights once (the loading bar shows the size; cached afterwards) and embeds the ~700 object
 names once (cached in localStorage). After that, each photo is one image embedding plus a few hundred dot products.
 
 If the recognizer can't load, the game still works: players type what their object is.

@@ -33,14 +33,14 @@ let modelOK = null; // null = loading, true = ready, false = failed
 
 /* ---------- recognizer loading ---------- */
 R.load((stage, p) => {
-  $("loadTxt").textContent = stage === "Ready" ? "Recognizer ready" : `${stage}… ${Math.round(p*100)}%`;
+  $("loadTxt").textContent = stage === "Ready" ? "Recognizer ready" : `${stage} · ${Math.round(p*100)}%`;
   $("loadBar").style.transform = `scaleX(${p})`;
 }).then(() => {
   modelOK = true; $("load").classList.add("done");
   setTimeout(() => { $("load").hidden = true; }, 1200);
 }).catch(e => {
   console.error(e); modelOK = false;
-  $("loadTxt").textContent = "Couldn't load the recognizer. You'll type your answers instead.";
+  $("loadTxt").textContent = "Couldn't load the recognizer (" + (e && e.message || e) + "). You'll type your answers instead.";
   $("loadBar").style.transform = "scaleX(0)";
   if (!$("round").hidden && !cur) $("manual").hidden = false;
 });

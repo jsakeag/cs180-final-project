@@ -18,6 +18,7 @@ window.Recognizer = (() => {
   const MODEL = "Xenova/clip-vit-base-patch16";
   const LIB = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
   const TEMPLATES = ["a photo of a {}", "a drawing of a {}"];
+  const USE_WEBGPU = false;
   const D = window.OUTLIER_DATA;
 
   let ready = null;          // promise
@@ -85,9 +86,14 @@ window.Recognizer = (() => {
     const progress_callback = e => {
       if (e.status === "progress" && e.file) { files[e.file] = { loaded: e.loaded || 0, total: e.total || 0 }; }
       const v = Object.values(files), tot = v.reduce((a, f) => a + f.total, 0), got = v.reduce((a, f) => a + f.loaded, 0);
-      if (tot) onProgress("Downloading model", got / tot);
+      const mb = n => Math.round(n / 1048576);
+      const sizesKnown = v.length && v.every(f => f.total > 0);
+      if (sizesKnown) onProgress(`Downloading model (${mb(got)} of ${mb(tot)} MB, one time only)`, got / tot);
+      else if (got) onProgress(`Downloading model (${mb(got)} MB so far, one time only)`, 0.5);
+      if (e.status === "ready") onProgress("Starting model", 1);
     };
-    const opts = { device, dtype: device === "webgpu" ? "fp32" : "q8", progress_callback };
+    // Quantized (8-bit) weights: several times smaller than full precision, near-identical accuracy.
+    const opts = { device, dtype: "q8", progress_callback };
     tokenizer = await tf.AutoTokenizer.from_pretrained(MODEL);
     processor = await tf.AutoProcessor.from_pretrained(MODEL);
     [textModel, visionModel] = await Promise.all([
@@ -102,7 +108,8 @@ window.Recognizer = (() => {
       onProgress("Loading", 0);
       tf = await import(LIB);
       vocab = buildVocab();
-      const device = ("gpu" in navigator) ? "webgpu" : "wasm";
+      // WASM runs the 8-bit model everywhere; set USE_WEBGPU = true to try the GPU instead.
+      const device = (USE_WEBGPU && "gpu" in navigator) ? "webgpu" : "wasm";
       try { await loadModels(device, onProgress); }
       catch (e) { if (device === "wasm") throw e; console.warn("WebGPU failed, using WASM", e); await loadModels("wasm", onProgress); }
 
