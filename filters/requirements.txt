@@ -1,0 +1,8 @@
+numpy
+scipy
+Pillow
+matplotlib  # HSL mixer and tune.py
+# optional
+rawpy       # RAW input (.dng, .arw, .cr3, ...)
+tifffile    # 16-bit TIFF output
+# rembg[cpu]  # --auto-subject (downloads a small model on first use)
